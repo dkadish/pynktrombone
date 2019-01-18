@@ -1,7 +1,10 @@
+import numpy as np
+np.seterr(all='raise')
+
 from tools import move_towards
 from transient import MAX_TRANSIENTS, TransientPool, Transient
 
-zeros = lambda n: [0] * n
+zeros = lambda n: np.zeros(n)
 
 
 class Tract:
@@ -110,11 +113,10 @@ class Tract:
         self.junction_outR[0] = self.L[0] * self.glottal_reflection + excitation
         self.junction_outL[self.n] = self.R[self.n - 1] * self.lip_reflection
 
-        for i in range(1, self.n):
-            r = self.reflection[i] * (1 - xfade_coeff) + self.new_reflection[i] * xfade_coeff
-            w = r * (self.R[i - 1] + self.L[i])
-            self.junction_outR[i] = self.R[i - 1] - w
-            self.junction_outL[i] = self.L[i] + w
+        r = self.reflection[1:self.n] * (1-xfade_coeff) + self.new_reflection[1:self.n] * xfade_coeff
+        w = r * (self.R[:-1] + self.L[1:])
+        self.junction_outR[1:self.n] = self.R[:-1] - w
+        self.junction_outL[1:self.n] = self.L[1:] + w
 
         # Calculate Scattering for Nose
         i = self.nose_start
@@ -126,24 +128,21 @@ class Tract:
         self.nose_junc_outR[0] = r * self.noseL[0] + (1 + r) * (self.L[i] + self.R[i - 1])
 
         # Update Left/Right delay lines and set lip output
-        for i in range(self.n):
-            self.R[i] = self.junction_outR[i] * 0.999
-            self.L[i] = self.junction_outL[i + 1] * 0.999
+        self.R[:self.n] = self.junction_outR[:self.n] * 0.999
+        self.L[:self.n] = self.junction_outL[1:self.n+1] * 0.999
 
         self.lip_output = self.R[self.n - 1]
 
         # Calculate Nose Scattering Junctions
         self.nose_junc_outL[self.nose_length] = self.noseR[self.nose_length - 1] * self.lip_reflection
 
-        for i in range(1, self.nose_length):
-            w = self.nose_reflection[i] * (self.noseR[i - 1] + self.noseL[i])
-            self.nose_junc_outR[i] = self.noseR[i - 1] - w
-            self.nose_junc_outL[i] = self.noseL[i] + w
+        w = self.nose_reflection[1:self.nose_length] * (self.noseR[:self.nose_length-1] + self.noseL[1:self.nose_length])
+        self.nose_junc_outR[1:self.nose_length] = self.noseR[:self.nose_length-1] - w
+        self.nose_junc_outL[1:self.nose_length] = self.noseL[1:self.nose_length] + w
 
         # Update Nose Left/Right delay lines and set nose output
-        for i in range(self.nose_length):
-            self.noseR[i] = self.nose_junc_outR[i]
-            self.noseL[i] = self.nose_junc_outL[i + 1]
+        self.noseR[:self.nose_length] = self.nose_junc_outR[:self.nose_length]
+        self.noseL[:self.nose_length] = self.nose_junc_outL[1:self.nose_length+1]
 
         self.nose_output = self.noseR[self.nose_length - 1]
 
