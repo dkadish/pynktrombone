@@ -126,7 +126,7 @@ class Glottis:
                                       block_time / self.attack_time,
                                       block_time / self.release_time);
 
-    def compute(self, lmbda: float) -> float:
+    def compute(self, lmbda: float, randomize: bool = True) -> float:
         out = 0.0;
         self.time_in_waveform += self.T
 
@@ -144,7 +144,10 @@ class Glottis:
         voice_loudness = pow(self.tenseness, 0.25)
         out *= voice_loudness
 
-        noise = 1.0 * random() - 0.5 #FIXME Test this...
+        if randomize:
+            noise = 1.0 * random() - 0.5 #FIXME Test this...
+        else:
+            noise = 1.0 * 0.5 - 0.5
         # ################################################################################################################
         # # Corresponds to https://github.com/jamesstaub/pink-trombone-osc/blob/d700292127f31b73b44103c0e8dc4865a3cca651/src/audio/glottis.js#L192
         # noise = 1.0 * ((SPFLOAT) sp_rand(sp) / SP_RANDMAX) - 0.5

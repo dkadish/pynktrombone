@@ -9,11 +9,12 @@ from tract import Tract
 class Voc:
 
     def __init__(self, sr: float):
-        self.glot = Glottis(sr) #FIXME rename to self.glottis
-        self.tr = Tract(sr) #FIXME rename to self.tract
+        self.glot = Glottis(sr)  # FIXME rename to self.glottis
+        self.tr = Tract(sr)  # FIXME rename to self.tract
         self._counter = 0
 
-    def compute(self) -> List[float]: # C Version returns an int and sets a referenced float *out. This returns *out instead.
+    def compute(self, randomize: bool = True) -> List[
+        float]:  # C Version returns an int and sets a referenced float *out. This returns *out instead.
 
         self.glot.update(self.tr.block_time)
         self.tr.reshape()
@@ -25,7 +26,7 @@ class Voc:
             vocal_output = 0
             lambda1 = i / 512.0
             lambda2 = (i + 0.5) / 512.0
-            glot = self.glot.compute(lambda1)
+            glot = self.glot.compute(lambda1, randomize)
 
             self.tr.compute(glot, lambda1)
             vocal_output += self.tr.lip_output + self.tr.nose_output
@@ -72,7 +73,7 @@ class Voc:
         return self.tr.diameter
 
     @property
-    def frequency_ptr(self): #FIXME rename from frequency_ptr to frequency
+    def frequency_ptr(self):  # FIXME rename from frequency_ptr to frequency
         return self.glot.freq
 
     @property
@@ -84,7 +85,7 @@ class Voc:
         return self.tr.nose_length
 
     @property
-    def tenseness_ptr(self): #FIXME rename from tenseness_ptr to tenseness
+    def tenseness_ptr(self):  # FIXME rename from tenseness_ptr to tenseness
         return self.glot.tenseness
 
     @property
@@ -96,16 +97,16 @@ class Voc:
         return self.tr.n
 
     @property
-    def velum_ptr(self): #FIXME rename from velum_ptr to velum
+    def velum_ptr(self):  # FIXME rename from velum_ptr to velum
         return self.tr.velum_target
 
     # Setters
     def diameters(self, blade_start: int,
-                          lip_start: int,
-                          tip_start: int,
-                          tongue_index: float,
-                          tongue_diameter: float,
-                          diameters: List[float]) -> List[float]: # Was a pointer
+                  lip_start: int,
+                  tip_start: int,
+                  tongue_index: float,
+                  tongue_diameter: float,
+                  diameters: List[float]) -> List[float]:  # Was a pointer
 
         grid_offset = 1.7
         fixed_tongue_diameter = 2 + (tongue_diameter - 2) / 1.5
@@ -124,13 +125,13 @@ class Voc:
 
     def frequency(self):
         pass
-    
+
     def glottis_enable(self):
         pass
-    
+
     def tenseness(self):
         pass
-    
+
     def tongue_shape(self, tongue_index: float, tongue_diameter: float) -> None:
         diameters = self.tract_diameters
         self.diameters(10, 39, 32, tongue_index, tongue_diameter, diameters)
