@@ -1,10 +1,13 @@
 import math
 from typing import List
 
+import numpy as np
+
 from glottis import Glottis
 from tools import sp_data
 from tract import Tract
 
+CHUNK = 1024
 
 class Voc:
 
@@ -13,8 +16,7 @@ class Voc:
         self.tr = Tract(sr)  # FIXME rename to self.tract
         self._counter = 0
 
-    def compute(self, randomize: bool = True) -> List[
-        float]:  # C Version returns an int and sets a referenced float *out. This returns *out instead.
+    def compute(self, randomize: bool = True) -> List[float]:  # C Version returns an int and sets a referenced float *out. This returns *out instead.
 
         self.glot.update(self.tr.block_time)
         self.tr.reshape()
@@ -22,10 +24,10 @@ class Voc:
 
         buf = []
 
-        for i in range(512):
+        for i in range(CHUNK):
             vocal_output = 0
-            lambda1 = i / 512.0
-            lambda2 = (i + 0.5) / 512.0
+            lambda1 = i / float(CHUNK)
+            lambda2 = (i + 0.5) / float(CHUNK)
             glot = self.glot.compute(lambda1, randomize)
 
             self.tr.compute(glot, lambda1)
@@ -35,6 +37,29 @@ class Voc:
             vocal_output += self.tr.lip_output + self.tr.nose_output
             buf.append(vocal_output * 0.125)
 
+        #################################################
+        #
+        # vocal_output = 0
+        # lambda1 = np.arange(0,1,1/CHUNK)
+        # lambda2 = np.arange((0+0.5) / CHUNK, (CHUNK+0.5) / CHUNK, 1 / CHUNK)
+        # glot = self.glot.compute(lambda1, randomize)
+        #
+        # self.tr.compute(glot, lambda1)
+        # vocal_output += self.tr.lip_output + self.tr.nose_output
+        #
+        # self.tr.compute(glot, lambda2)
+        # vocal_output += self.tr.lip_output + self.tr.nose_output
+        # buf = vocal_output * 0.125
+        #
+        #################################################
+
+        # self.tr.compute(glot, lambda1)
+        # vocal_output += self.tr.lip_output + self.tr.nose_output
+        #
+        # self.tr.compute(glot, lambda2)
+        # vocal_output += self.tr.lip_output + self.tr.nose_output
+        # buf.append(vocal_output * 0.125)
+
         return buf
 
     def tract_compute(self, sp: sp_data, zin) -> float:
@@ -43,8 +68,8 @@ class Voc:
             self.tr.calculate_reflections()
 
         vocal_output = 0
-        lambda1 = self._counter / 512.0
-        lambda2 = (self._counter + 0.5) / 512.0
+        lambda1 = self._counter / float(CHUNK)
+        lambda2 = (self._counter + 0.5) / float(CHUNK)
 
         self.tr.compute(zin, lambda1)
         vocal_output += self.tr.lip_output + self.tr.nose_output
@@ -52,7 +77,7 @@ class Voc:
         vocal_output += self.tr.lip_output + self.tr.nose_output
 
         out = vocal_output * 0.125
-        self._counter = (self._counter + 1) % 512
+        self._counter = (self._counter + 1) % CHUNK
         return out
 
     # Unnecessary in Python
