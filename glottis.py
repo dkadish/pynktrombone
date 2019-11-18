@@ -127,7 +127,7 @@ class Glottis:
                                       block_time / self.release_time);
 
     def compute(self, lmbda: float, randomize: bool = True) -> float:
-        out = 0.0;
+        out = 0.0
         self.time_in_waveform += self.T
 
         if self.time_in_waveform > self.waveform_length:

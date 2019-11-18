@@ -95,7 +95,7 @@ class Tract:
             self.tpool.pool[i].strength = 0
             self.tpool.pool[i].exponent = 0
 
-    def compute(self, excitation, xfade_coeff):  # in > excitation, lambda > xfade_coeff
+    def compute(self, excitation: float, xfade_coeff: float) -> None:  # in > excitation, lambda > xfade_coeff
         # Process Transients
         pool = self.tpool
         current_size = pool.size

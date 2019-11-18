@@ -7,7 +7,7 @@ from glottis import Glottis
 from tools import sp_data
 from tract import Tract
 
-CHUNK = 1024
+CHUNK = 512
 
 class Voc:
 
