@@ -10,6 +10,8 @@ N = 44
 NOSE_LENGTH = 28
 NOSE_START = 17
 
+CHUNK = 512
+
 class Tract:
 
     def __init__(self, samplerate):
@@ -298,7 +300,7 @@ class TractNP:
             self.tpool.pool[i].strength = 0
             self.tpool.pool[i].exponent = 0
 
-    def _calc_scattering_junctions(self, excitation):
+    def _calc_scattering_junctions(self, excitation, r):
         # Calculate Scattering Junctions
         self.junction_outR[0] = self.L[0] * self.GLOTTAL_REFLECTION + excitation
         self.junction_outL[N] = self.R[N - 1] * self.LIP_REFLECTION
@@ -337,11 +339,12 @@ class TractNP:
 
         self.nose_output = self.noseR[NOSE_LENGTH - 1]
 
-    def compute(self, excitation: np.array, xfade_coeff: float) -> None:  # in > excitation, lambda > xfade_coeff
-        r = self._reflection[1:N] * (1 - xfade_coeff) + self._new_reflection[1:N] * xfade_coeff
-        r_outL = self._new_reflection_left * (1 - xfade_coeff) + self._reflection_left * xfade_coeff
-        r_outR = self._new_reflection_right * (1 - xfade_coeff) + self._reflection_right * xfade_coeff
-        r_nj = self._new_reflection_nose * (1 - xfade_coeff) + self._reflection_nose * xfade_coeff
+    def compute(self, excitation: np.array, xfade_coeff1: np.array) -> None:  # in > excitation, lambda > xfade_coeff
+        #FIXME Must be vectorized (for the other variables)
+        r = self._reflection[1:N] * (1 - xfade_coeff1) + self._new_reflection[1:N] * xfade_coeff1
+        r_outL = self._new_reflection_left * (1 - xfade_coeff1) + self._reflection_left * xfade_coeff1
+        r_outR = self._new_reflection_right * (1 - xfade_coeff1) + self._reflection_right * xfade_coeff1
+        r_nj = self._new_reflection_nose * (1 - xfade_coeff1) + self._reflection_nose * xfade_coeff1
 
         # Process Transients
         pool = self.tpool
@@ -356,7 +359,7 @@ class TractNP:
                 pool.remove(n.id)
             n = n.next
 
-        self._calc_scattering_junctions(excitation)
+        self._calc_scattering_junctions(excitation, r)
         self._calc_scattering_for_nose(r_outL, r_outR, r_nj)
         self._update_delay_lines_and_lip()
         self._calc_nose_scattering_jcts()

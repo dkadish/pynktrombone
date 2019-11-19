@@ -5,7 +5,7 @@ import numpy as np
 
 from glottis import Glottis, GlottisNP
 from tools import sp_data
-from tract import Tract
+from tract import Tract, TractNP
 
 CHUNK = 512
 
@@ -17,20 +17,19 @@ class Voc:
         self._counter = 0
 
         self.glotnp = GlottisNP(sr)
+        self.trnp = TractNP(sr)
 
     def compute(self, randomize: bool = True, use_np=False) -> List[float]:  # C Version returns an int and sets a referenced float *out. This returns *out instead.
         #TODO What if I just compute the next and store in a buffer?
         if use_np:
             self.glotnp.update(self.tr.block_time)
-        else:
-            self.glot.update(self.tr.block_time)
-
-        self.tr.reshape()
-        self.tr.calculate_reflections()
-
-        if use_np:
+            self.trnp.reshape()
+            self.trnp.calculate_reflections()
             buf = self._compute_np(randomize)
         else:
+            self.glot.update(self.tr.block_time)
+            self.tr.reshape()
+            self.tr.calculate_reflections()
             buf = self._compute(randomize)
 
         #################################################
@@ -80,22 +79,19 @@ class Voc:
         return buf
 
     def _compute_np(self, randomize):
-        buf = []
-
         vocal_output = np.zeros(shape=(CHUNK,))
         lambda1 = np.arange(CHUNK, dtype=float) / float(CHUNK)
         lambda2 = (np.arange(CHUNK, dtype=float) + 0.5) / float(CHUNK)
         glot = self.glotnp.compute_np(randomize)
 
         for i in range(CHUNK):
-            self.tr.compute(glot[i], lambda1[i])
-            vocal_output[i] += self.tr.lip_output + self.tr.nose_output
+            self.trnp.compute(glot[i], lambda1[i])
+            vocal_output[i] = self.trnp.lip_output + self.trnp.nose_output
 
-            self.tr.compute(glot[i], lambda2[i])
-            vocal_output[i] += self.tr.lip_output + self.tr.nose_output
-            buf.append(vocal_output[i] * 0.125)
+            self.trnp.compute(glot[i], lambda2[i])
+            vocal_output[i] += self.trnp.lip_output + self.trnp.nose_output
 
-        return buf
+        return vocal_output * 0.125
 
     def tract_compute(self, sp: sp_data, zin) -> float:
         if self._counter == 0:
@@ -188,7 +184,10 @@ class Voc:
         self.glot.freq = f
 
     def glottis_enable(self):
-        pass
+        self.glot.enable = True
+
+    def glottis_disable(self):
+        self.glot.enable = False
 
     @tenseness.setter
     def tenseness(self, t):
