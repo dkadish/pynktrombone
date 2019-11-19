@@ -35,6 +35,7 @@ class TransientPool:
     :return: 0 on failure, 1 on success
     '''
     def append(self, position):
+        print("Transient Appended")
         free_id = self.next_free
 
         # Check and see if the pool is full. If this is so, return 0

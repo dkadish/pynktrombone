@@ -14,7 +14,7 @@ v.tr.calculate_reflections()
 buf = []
 lambda1 = 0
 lambda2 = 0.5/float(CHUNK)
-glot = v.glot.compute(lambda1, randomize=False)
+glot = v.glot.compute(randomize=False)
 
 v.tr.compute(glot, lambda1)
 vocal_output_1 = v.tr.lip_output + v.tr.nose_output
@@ -22,6 +22,9 @@ vocal_output_1 = v.tr.lip_output + v.tr.nose_output
 v.tr.compute(glot, lambda2)
 vocal_output_2 = vocal_output_1 + v.tr.lip_output + v.tr.nose_output
 buf.append(vocal_output_2 * 0.125)
+
+# Full Chunk
+
 
 test_values = {
     'basic_voc_output': voc_out,
