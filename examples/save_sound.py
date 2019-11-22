@@ -1,3 +1,4 @@
+import random
 from timeit import timeit
 
 import numpy as np
@@ -9,7 +10,7 @@ from voc import Voc, CHUNK
 
 samplerate = 48000
 
-duration = 5.0  # seconds
+duration = 2.0  # seconds
 
 def main():
 
@@ -27,9 +28,22 @@ def main():
 
         output.append(out.reshape(-1))
 
-    wavfile.write('test.wav', samplerate, np.concatenate(output))
+        # try:
+        #     vocal.frequency += random.randint(-5,5)
+        # except ValueError as e:
+        #     pass
+        #
+        # print(vocal.frequency)
 
-    sd.play(np.concatenate(output), samplerate=sd.default.samplerate, blocking=True)
+        # if random.randint(0,100) > 90:
+        #     print('DISABLED')
+        #     vocal.glottis_disable()
+        # else:
+        #     print('ENABLED')
+
+    # wavfile.write('test.wav', samplerate, np.concatenate(output))
+
+    sd.play(np.concatenate(output), samplerate=samplerate, blocking=True)
 
 if __name__ == '__main__':
     t = timeit(main, number=1)

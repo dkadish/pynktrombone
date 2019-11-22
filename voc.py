@@ -3,109 +3,56 @@ from typing import List
 
 import numpy as np
 
-from glottis import Glottis, GlottisNP
+from glottis import Glottis
 from tools import sp_data
-from tract import Tract, TractNP
+from tract import Tract
 
 CHUNK = 512
 
 class Voc:
 
     def __init__(self, sr: float):
-        self.glot = Glottis(sr)  # FIXME rename to self.glottis
-        self.tr = Tract(sr)  # FIXME rename to self.tract
+        self.glottis = Glottis(sr)  # FIXME rename to self.glottis
+        self.tract = Tract(sr)  # FIXME rename to self.tract
         self._counter = 0
 
-        self.glotnp = GlottisNP(sr)
-        self.trnp = TractNP(sr)
-
-    def compute(self, randomize: bool = True, use_np=False) -> List[float]:  # C Version returns an int and sets a referenced float *out. This returns *out instead.
+    def compute(self, randomize: bool = True) -> List[float]:  # C Version returns an int and sets a referenced float *out. This returns *out instead.
         #TODO What if I just compute the next and store in a buffer?
-        if use_np:
-            self.glotnp.update(self.tr.block_time)
-            self.trnp.reshape()
-            self.trnp.calculate_reflections()
-            buf = self._compute_np(randomize)
-        else:
-            self.glot.update(self.tr.block_time)
-            self.tr.reshape()
-            self.tr.calculate_reflections()
-            buf = self._compute(randomize)
-
-        #################################################
-        #
-        # vocal_output = 0
-        # lambda1 = np.arange(0,1,1/CHUNK)
-        # lambda2 = np.arange((0+0.5) / CHUNK, (CHUNK+0.5) / CHUNK, 1 / CHUNK)
-        # glot = self.glot.compute(lambda1, randomize)
-        #
-        # self.tr.compute(glot, lambda1)
-        # vocal_output += self.tr.lip_output + self.tr.nose_output
-        #
-        # self.tr.compute(glot, lambda2)
-        # vocal_output += self.tr.lip_output + self.tr.nose_output
-        # buf = vocal_output * 0.125
-        #
-        #################################################
-
-        # self.tr.compute(glot, lambda1)
-        # vocal_output += self.tr.lip_output + self.tr.nose_output
-        #
-        # self.tr.compute(glot, lambda2)
-        # vocal_output += self.tr.lip_output + self.tr.nose_output
-        # buf.append(vocal_output * 0.125)
+        self.glottis.update(self.tract.block_time)
+        self.tract.reshape()
+        self.tract.calculate_reflections()
+        buf = self._compute(randomize)
 
         return buf
 
     def _compute(self, randomize):
-        buf = []
+        vocal_output = np.zeros(shape=(CHUNK,), dtype=np.float32)
+        lambda1 = np.arange(CHUNK, dtype=np.float32) / float(CHUNK)
+        lambda2 = (np.arange(CHUNK, dtype=np.float32) + 0.5) / float(CHUNK)
+        glot = self.glottis.compute(randomize)
 
         for i in range(CHUNK):
-            vocal_output = 0
-            lambda1 = i / float(CHUNK)
-            lambda2 = (i + 0.5) / float(CHUNK)
-            glot = self.glot.compute(randomize)
-            # glotnp = self.glotnp.compute(randomize)
+            self.tract.compute(glot[i], lambda1[i])
+            vocal_output[i] += self.tract.lip_output + self.tract.nose_output
 
-            # print(i, glot, glotnp)
-
-            self.tr.compute(glot, lambda1)
-            vocal_output += self.tr.lip_output + self.tr.nose_output
-
-            self.tr.compute(glot, lambda2)
-            vocal_output += self.tr.lip_output + self.tr.nose_output
-            buf.append(vocal_output * 0.125)
-
-        return buf
-
-    def _compute_np(self, randomize):
-        vocal_output = np.zeros(shape=(CHUNK,))
-        lambda1 = np.arange(CHUNK, dtype=float) / float(CHUNK)
-        lambda2 = (np.arange(CHUNK, dtype=float) + 0.5) / float(CHUNK)
-        glot = self.glotnp.compute_np(randomize)
-
-        for i in range(CHUNK):
-            self.trnp.compute(glot[i], lambda1[i])
-            vocal_output[i] = self.trnp.lip_output + self.trnp.nose_output
-
-            self.trnp.compute(glot[i], lambda2[i])
-            vocal_output[i] += self.trnp.lip_output + self.trnp.nose_output
+            self.tract.compute(glot[i], lambda2[i])
+            vocal_output[i] += self.tract.lip_output + self.tract.nose_output
 
         return vocal_output * 0.125
 
     def tract_compute(self, sp: sp_data, zin) -> float:
         if self._counter == 0:
-            self.tr.reshape()
-            self.tr.calculate_reflections()
+            self.tract.reshape()
+            self.tract.calculate_reflections()
 
         vocal_output = 0
         lambda1 = self._counter / float(CHUNK)
         lambda2 = (self._counter + 0.5) / float(CHUNK)
 
-        self.tr.compute(zin, lambda1)
-        vocal_output += self.tr.lip_output + self.tr.nose_output
-        self.tr.compute(zin, lambda2)
-        vocal_output += self.tr.lip_output + self.tr.nose_output
+        self.tract.compute(zin, lambda1)
+        vocal_output += self.tract.lip_output + self.tract.nose_output
+        self.tract.compute(zin, lambda2)
+        vocal_output += self.tract.lip_output + self.tract.nose_output
 
         out = vocal_output * 0.125
         self._counter = (self._counter + 1) % CHUNK
@@ -126,37 +73,38 @@ class Voc:
 
     @property
     def current_tract_diameters(self):
-        return self.tr.diameter
+        return self.tract.diameter
 
     @property
     def frequency(self):
-        return self.glot.freq
+        return self.glottis.freq
 
     @property
     def nose_diameters(self):
-        return self.tr.nose_diameter
+        return self.tract.nose_diameter
 
     @property
     def nose_size(self):
-        return self.tr.nose_length
+        return self.tract.nose_length
 
     @property
     def tenseness(self):
-        return self.glot.tenseness
+        return self.glottis.tenseness
 
     @property
     def tract_diameters(self):
-        return self.tr.target_diameter
+        return self.tract.target_diameter
 
     @property
     def tract_size(self):
-        return self.tr.n
+        return self.tract.n
 
     @property
     def velum(self):
-        return self.tr.velum_target
+        return self.tract.velum_target
 
     # Setters
+    #TODO Currently, trachea, epiglottis, lips are fixed. They don't have to be.
     def diameters(self, blade_start: int,
                   lip_start: int,
                   tip_start: int,
@@ -181,22 +129,40 @@ class Voc:
 
     @frequency.setter
     def frequency(self, f):
-        self.glot.freq = f
+        if f < 100:
+            raise ValueError('Frequency must be above 100 Hz.')
+        self.glottis.freq = f
 
     def glottis_enable(self):
-        self.glot.enable = True
+        self.glottis.enable = True
 
     def glottis_disable(self):
-        self.glot.enable = False
+        self.glottis.enable = False
 
     @tenseness.setter
     def tenseness(self, t):
-        self.glot.tenseness = t
+        '''
+
+        :param t: Must be in the range of [0,1]. Good values between [0.6, 0.9]
+        :return:
+        '''
+        self.glottis.tenseness = t
 
     def tongue_shape(self, tongue_index: float, tongue_diameter: float) -> None:
+        '''
+
+        :param tongue_index: Where on the diameter index curve (VOC p25) the tongue is pointed. Should be on [blade_start,tip_start], which by default is [10, 32]
+        :param tongue_diameter: Should be between [2.0, 3.5].
+        :return: None
+        '''
         diameters = self.tract_diameters
         self.diameters(10, 39, 32, tongue_index, tongue_diameter, diameters)
 
     @velum.setter
     def velum(self, v):
-        self.tr.velum_target = v
+        '''
+
+        :param v: Defaults to 0.01. Nasally sounds at 0.04. Try between [0.0, 0.05]
+        :return:
+        '''
+        self.tract.velum_target = v
