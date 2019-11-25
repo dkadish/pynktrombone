@@ -26,16 +26,19 @@ class Voc:
         return buf
 
     def _compute(self, randomize):
+        self.tract.reshape()
+        self.tract.calculate_reflections()
+
         vocal_output = np.zeros(shape=(CHUNK,), dtype=np.float32)
         lambda1 = np.arange(CHUNK, dtype=np.float32) / float(CHUNK)
         lambda2 = (np.arange(CHUNK, dtype=np.float32) + 0.5) / float(CHUNK)
-        glot = self.glottis.compute(randomize)
 
         for i in range(CHUNK):
-            self.tract.compute(glot[i], lambda1[i])
+            glot = self.glottis.compute(randomize)
+            self.tract.compute(glot, lambda1[i])
             vocal_output[i] += self.tract.lip_output + self.tract.nose_output
 
-            self.tract.compute(glot[i], lambda2[i])
+            self.tract.compute(glot, lambda2[i])
             vocal_output[i] += self.tract.lip_output + self.tract.nose_output
 
         return vocal_output * 0.125
@@ -73,7 +76,7 @@ class Voc:
 
     @property
     def current_tract_diameters(self):
-        return self.tract.diameter
+        return self.tract._diameter
 
     @property
     def frequency(self):
@@ -93,7 +96,7 @@ class Voc:
 
     @property
     def tract_diameters(self):
-        return self.tract.target_diameter
+        return self.tract._target_diameter
 
     @property
     def tract_size(self):
@@ -109,23 +112,35 @@ class Voc:
                   lip_start: int,
                   tip_start: int,
                   tongue_index: float,
-                  tongue_diameter: float,
-                  diameters: List[float]) -> List[float]:  # Was a pointer
+                  tongue_diameter: float):
 
-        grid_offset = 1.7
+        grid_offset = 0.0 #1.7
         fixed_tongue_diameter = 2 + (tongue_diameter - 2) / 1.5
         tongue_amplitude = (1.5 - fixed_tongue_diameter + grid_offset)
 
-        for i in range(blade_start, lip_start):
-            t = 1.1 * math.pi * (tongue_index - i) / (tip_start - blade_start)
-            curve = tongue_amplitude * math.cos(t)
-            if i == lip_start - 1:
-                curve *= 0.8
-            if i == blade_start or i == lip_start - 2:
-                curve *= 0.94
-            diameters[i] = 1.5 - curve
+        # diameters = self.tract.target_diameter.copy()
+        diameters = self.tract.target_diameter.copy()
 
-        return diameters
+        # for i in range(blade_start, lip_start):
+        #     t = 1.1 * math.pi * float(tongue_index - i) / float(tip_start - blade_start)
+        #     curve = tongue_amplitude * math.cos(t)
+        #     if i == lip_start - 1:
+        #         curve *= 0.8
+        #     if i == blade_start or i == lip_start - 2:
+        #         curve *= 0.94
+        #     diameters[i] = 1.5 - curve
+
+        # NP
+        t = 1.1 * np.pi * (tongue_index - np.arange(blade_start, lip_start)) / (tip_start - blade_start)
+        curve = tongue_amplitude * np.cos(t)
+        curve[lip_start - 1 - blade_start] *= 0.8
+        curve[[0, lip_start - 2 - blade_start]] *= 0.94
+        diameters[blade_start:lip_start] = 1.5 - curve
+
+        # np.testing.assert_array_equal(diameters, diameters_np)
+
+        self.tract.target_diameter = diameters
+
 
     @frequency.setter
     def frequency(self, f):
@@ -155,8 +170,7 @@ class Voc:
         :param tongue_diameter: Should be between [2.0, 3.5].
         :return: None
         '''
-        diameters = self.tract_diameters
-        self.diameters(10, 39, 32, tongue_index, tongue_diameter, diameters)
+        self.diameters(10, 39, 32, tongue_index, tongue_diameter)
 
     @velum.setter
     def velum(self, v):

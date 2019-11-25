@@ -19,9 +19,9 @@ class Tract:
         # self.fade
 
         # Setup arrays
-        self.diameter = zeros(N)
-        self.rest_diameter = zeros(N)
-        self.target_diameter = zeros(N)
+        self._diameter = zeros(N)
+        # self.rest_diameter = zeros(N)
+        self._target_diameter = zeros(N)
         self.R = zeros(N)
         self.L = zeros(N)
         self.reflection = zeros(N+1)
@@ -64,7 +64,8 @@ class Tract:
             else:
                 diameter = 1.5
 
-            self.diameter[i] = self.rest_diameter[i] = self.target_diameter[i] = diameter
+            # self._diameter[i] = self.rest_diameter[i] = self._target_diameter[i] = diameter
+            self._diameter[i] = self._target_diameter[i] = diameter
 
         # Set up the nasal passage parameters
         for i in range(NOSE_LENGTH):
@@ -168,7 +169,7 @@ class Tract:
 
     def calculate_reflections(self):
         # self.A[i] = self.diameter[i] * self.diameter[i]
-        self.A = np.power(self.diameter,2)
+        self.A = np.power(self._diameter, 2)
 
         self.reflection[1:N] = self.new_reflection[1:N]
         self.new_reflection[1:N][self.A[1:N] == 0] = 0.999
@@ -187,10 +188,10 @@ class Tract:
     def reshape(self):
         current_obstruction = -1
         amount = self.block_time * self.movement_speed
-
+        # print('Before: ', self.diameter, self.diameter - self.target_diameter)
         for i in range(N):
-            diameter = self.diameter[i]
-            target_diameter = self.target_diameter[i]
+            diameter = self._diameter[i]
+            target_diameter = self._target_diameter[i]
 
             if diameter < 0.001: current_obstruction = i
 
@@ -201,8 +202,9 @@ class Tract:
             else:
                 slow_return = 0.6 + 0.4 * (i - NOSE_START) / (self.tip_start - NOSE_START)
 
-            self.diameter[i] = move_towards(diameter, target_diameter, slow_return * amount, 2 * amount)
+            self._diameter[i] = move_towards(diameter, target_diameter, slow_return * amount, 2 * amount)
 
+        # print('After: ', self.diameter)
         if self.last_obstruction > -1 and current_obstruction == -1 and self.noseA[0] < 0.05:
             self.tpool.append(self.last_obstruction)
 
@@ -211,3 +213,19 @@ class Tract:
         self.nose_diameter[0] = move_towards(self.nose_diameter[0], self.velum_target,
                                              amount * 0.25, amount * 0.1)
         self.noseA[0] = self.nose_diameter[0] * self.nose_diameter[0]
+
+    @property
+    def diameter(self):
+        return self._diameter
+
+    @diameter.setter
+    def diameter(self, d):
+        self._diameter = d
+
+    @property
+    def target_diameter(self):
+        return self._target_diameter
+
+    @target_diameter.setter
+    def target_diameter(self, d):
+        self._target_diameter = d

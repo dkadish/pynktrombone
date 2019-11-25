@@ -8,19 +8,36 @@ import hashlib
 
 sd.default.samplerate = 44100
 
+
+def remap(value, max_out, min_out, max_in=1.0, min_in=-1.0):
+    return (max_out - min_out) * (value + 1.0) / 2.0 + min_out
+
+
 def main():
     vocal = Voc(sd.default.samplerate)
 
     outdata = np.array([], dtype=np.float32)
 
-    for i in range(100):
-        _osc = 0
-        _voc = 0
-        if vocal.counter == 0:
-            _osc = 12 + 16 * (0.5 * (_osc + 1));
-            vocal.tongue_shape(_osc, 2.9)
+    # minimum = [0.0, 200.0, 0.6, 12.0, 2.0, 0.01]
+    # maximum = [1.0, 800.0, 0.9, 30.0, 3.5, 0.04]
+    # [touch, frequency, tenseness, tongue_index, tongue_diameter, velum] = activations
 
-        out = np.array(vocal.compute(randomize=False), dtype=np.float32)
+    for i in range(200):
+        # Tenseness
+        t = remap(np.sin(i / 30.0), 0.9, 0.6)
+        # vocal.tenseness = t
+
+        # Velum
+        v = remap(np.sin(i / 20.0), 0.05, 0.00)
+        # vocal.velum = v
+
+        # Tongue
+        td = remap(np.sin(i / 5.0), 4.0, 2.0)
+        ti = remap(np.sin(i / 50.0), 32.0, 10.0)
+        vocal.tongue_shape(ti, td)
+
+        print(t, v, td)
+        out = np.array(vocal.compute(randomize=True), dtype=np.float32)
 
         outdata = np.append(outdata, out.reshape(-1, 1))
 
