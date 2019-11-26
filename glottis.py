@@ -1,6 +1,8 @@
 import math
 from random import random
 
+import numpy as np
+
 from tools import move_towards, sp_data
 
 
@@ -77,40 +79,43 @@ class Glottis:
         E0
         '''
 
-        self.Rd = 3 * (1 - self.tenseness)
+        # Derive waveform length and Rd
+        self.Rd = 3.0 * (1.0 - self.tenseness)
         self.waveform_length = 1.0 / self.freq
 
-        Rd = self.Rd
-        if Rd < 0.5:
-            Rd = 0.5
-        elif Rd > 2.7:
-            Rd = 2.7
+        Rd = np.clip(self.Rd, 0.5, 2.7)
 
+        # 37. Ra, Rg, Rk
         Ra = -0.01 + 0.048 * Rd
         Rk = 0.224 + 0.118 * Rd
-        Rg = (Rk / 4) * (0.5 + 1.2 * Rk) / (0.11 * Rd - Ra * (0.5 + 1.2 * Rk))
+        Rg = (Rk / 4.0) * (0.5 + 1.2 * Rk) / (0.11 * Rd - Ra * (0.5 + 1.2 * Rk))
 
+        # 38. Ta, Tp, Te
         Ta = Ra
         Tp = 1.0 / (2.0 * Rg)
         Te = Tp + Tp * Rk
 
+        # 39. Epsilon, shift, delta
         epsilon = 1.0 / Ta
         shift = math.exp(-epsilon * (1.0 - Te))
-        delta = 1 - shift
+        delta = 1.0 - shift
 
+        # 40. Integrals
         rhs_integral = (1.0 / epsilon) * (shift - 1.0) + (1.0 - Te) * shift
         rhs_integral = rhs_integral / delta
-        lower_integral = -(Te - Tp) / 2 + rhs_integral
+        lower_integral = -(Te - Tp) / 2.0 + rhs_integral
         upper_integral = -lower_integral
 
+        # 41. E0
         omega = math.pi / Tp
         s = math.sin(omega * Te)
 
-        y = -math.pi * s * upper_integral / (Tp * 2)
+        y = -math.pi * s * upper_integral / (Tp * 2.0)
         z = math.log(y)
-        alpha = z / (Tp / 2 - Te)
-        E0 = -1 / (s * math.exp(alpha * Te))
+        alpha = z / (Tp / 2.0 - Te)
+        E0 = -1.0 / (s * math.exp(alpha * Te))
 
+        # 42. Update Variables
         self.alpha = alpha
         self.E0 = E0
         self.epsilon = epsilon
@@ -141,13 +146,15 @@ class Glottis:
         else:
             out = self.E0 * math.exp(self.alpha * t) * math.sin(self.omega * t)
 
-        voice_loudness = pow(self.tenseness, 0.25)
-        out *= voice_loudness
+        # voice_loudness = pow(self.tenseness, 0.25)
+        # out *= voice_loudness
 
         if randomize:
-            noise = 1.0 * random() - 0.5 #FIXME Test this...
+            # noise = 1.0 * random() - 0.5 #FIXME Test this...
+            noise = 2.0 * random() - 1.0 #FIXME Test this...
         else:
-            noise = 1.0 * 0.5 - 0.5
+            # noise = 1.0 * 0.5 - 0.5
+            noise = 2.0 * 0.5 - 1.0
         # ################################################################################################################
         # # Corresponds to https://github.com/jamesstaub/pink-trombone-osc/blob/d700292127f31b73b44103c0e8dc4865a3cca651/src/audio/glottis.js#L192
         # noise = 1.0 * ((SPFLOAT) sp_rand(sp) / SP_RANDMAX) - 0.5
@@ -158,10 +165,11 @@ class Glottis:
         # ################################################################################################################
 
         #JS: var aspiration = this.intensity * (1 - Math.sqrt( this.UITenseness)) * this.getNoiseModulator() * noiseSource
-        aspiration = (1 - math.sqrt(self.tenseness)) *0.2 * noise
+        aspiration = (1.0 - math.sqrt(self.tenseness)) * 0.3 * noise
 
         aspiration *= 0.2
 
         out += aspiration
 
-        return out * self.intensity
+        # return out * self.intensity
+        return out

@@ -49,7 +49,7 @@ class Tract:
         self.glottal_reflection = 0.75
         self.lip_reflection = -0.85
         self.last_obstruction = -1
-        self.movement_speed = 15
+        self.movement_speed = 10 #15
         self.lip_output = 0
         self.nose_output = 0
         self.tip_start = 32
@@ -115,10 +115,10 @@ class Tract:
         r = self.new_reflection_right * (1.0 - xfade_coeff) + self.reflection_right * xfade_coeff
         self.junction_outR[i] = r * self.L[i] + (1.0 + r) * (self.R[i - 1] + self.noseL[0])
         r = self.new_reflection_nose * (1.0 - xfade_coeff) + self.reflection_nose * xfade_coeff
-        try:
-            self.nose_junc_outR[0] = r * self.noseL[0] + (1.0 + r) * (self.L[i] + self.R[i - 1])
-        except FloatingPointError as e:
-            print('tract.py:120', e, r, self.noseL[0], (1.0 + r), self.L[i], self.R[i - 1])
+        # try:
+        self.nose_junc_outR[0] = r * self.noseL[0] + (1.0 + r) * (self.L[i] + self.R[i - 1])
+        # except FloatingPointError as e:
+        #     print('tract.py:120', e, r, self.noseL[0], (1.0 + r), self.L[i], self.R[i - 1])
 
     def _update_delay_lines_and_lip(self):
         # Update Left/Right delay lines and set lip output
@@ -163,9 +163,21 @@ class Tract:
         self._update_nose_delay_and_output()
 
     def calculate_nose_reflections(self):
-        self.noseA[:NOSE_LENGTH] = self.nose_diameter[:NOSE_LENGTH] * self.nose_diameter[:NOSE_LENGTH]
+        # noseA = self.noseA.copy()
+        # noseReflection = self.nose_reflection.copy()
+        #
+        # for i in range(NOSE_LENGTH):
+        #     noseA[i] = self.nose_diameter[i] * self.nose_diameter[i]
+        #
+        # for i in range(1, NOSE_LENGTH):
+        #     noseReflection[i] = (noseA[i-1] - noseA[i])/(noseA[i-1] + noseA[i])
+
+        self.noseA[:NOSE_LENGTH] = np.power(self.nose_diameter[:NOSE_LENGTH], 2)
 
         self.nose_reflection[1:NOSE_LENGTH] = (self.noseA[:NOSE_LENGTH-1] - self.noseA[1:NOSE_LENGTH]) / (self.noseA[:NOSE_LENGTH-1] + self.noseA[1:NOSE_LENGTH])
+
+        # np.testing.assert_array_equal(noseA, self.noseA)
+        # np.testing.assert_array_equal(noseReflection, self.nose_reflection)
 
     def calculate_reflections(self):
         # self.A[i] = self.diameter[i] * self.diameter[i]
@@ -212,7 +224,7 @@ class Tract:
 
         self.nose_diameter[0] = move_towards(self.nose_diameter[0], self.velum_target,
                                              amount * 0.25, amount * 0.1)
-        self.noseA[0] = self.nose_diameter[0] * self.nose_diameter[0]
+        self.noseA[0] = np.power(self.nose_diameter[0], 2)
 
     @property
     def diameter(self):
@@ -229,3 +241,47 @@ class Tract:
     @target_diameter.setter
     def target_diameter(self, d):
         self._target_diameter = d
+
+    @property
+    def lip_start(self):
+        return 39
+
+    @property
+    def blade_start(self):
+        '''The end of the epiglottis and the beginning of the tongue
+
+        :return:
+        '''
+        return 12 #10
+
+    @property
+    def epiglottis_start(self):
+        '''The end of the trachea and the beginning of the epiglottis
+
+        :return:
+        '''
+        return 6
+
+    @property
+    def lips(self):
+        return np.average(self._target_diameter[self.lip_start:])
+
+    @lips.setter
+    def lips(self, d):
+        self._target_diameter[self.lip_start:] = d
+
+    @property
+    def epiglottis(self):
+        return np.average(self._target_diameter[self.epiglottis_start:self.lip_start])
+
+    @epiglottis.setter
+    def epiglottis(self, d):
+        self._target_diameter[self.epiglottis_start:self.lip_start] = d
+
+    @property
+    def trachea(self):
+        return np.average(self._target_diameter[:self.epiglottis_start])
+
+    @trachea.setter
+    def trachea(self, d):
+        self._target_diameter[:self.epiglottis_start] = d

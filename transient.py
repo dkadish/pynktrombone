@@ -13,7 +13,7 @@ class Transient:
         self.lifetime = 0.2
         self.strength = 0.3
         self.exponent = 200
-        self.is_free = 0  # FIXME Should be bool
+        self.is_free = False  # FIXME Should be bool
         self.id = id
         self.next = next
 
@@ -35,7 +35,7 @@ class TransientPool:
     :return: 0 on failure, 1 on success
     '''
     def append(self, position):
-        print("Transient Appended")
+        # print("Transient Appended")
         free_id = self.next_free
 
         # Check and see if the pool is full. If this is so, return 0
@@ -55,7 +55,7 @@ class TransientPool:
         # the next value in the transient. (It does not matter if the root is
         # NULL, because the size of the list will prevent it from ever being
         # accessed.)
-        transient = Transient(position, free_id, self.next)
+        transient = Transient(position, free_id, self.root)
 
         self.pool[free_id] = transient
         self.root = transient
@@ -69,6 +69,7 @@ class TransientPool:
         return 0  # FIXME Should this return 1?
 
     def remove(self, id):
+        # print('Transient Removed')
         self.next_free = id
         n = self.root
 

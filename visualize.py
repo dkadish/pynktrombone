@@ -64,7 +64,9 @@ class VocalAnimator:
     def _init_control(self):
         # self.control_bars.set_data([], [])
         self.ax_control.set_xticks(np.arange(len(self.control[0])))
-        self.ax_control.set_xticklabels(('touch', 'frequency', 'tenseness', 'tongue_index', 'tongue_diameter', 'velum'))
+        self.ax_control.set_xticklabels(
+            ('touch', 'freq', 'tense', 'tng_idx', 'tng_diam', 'velum', 'lips', 'epig', 'trach')
+        )
         return [bar for bar in self.control_bars] + [self.control_tongue]
 
     def init(self):
@@ -145,14 +147,14 @@ def main(args):
     animator = VocalAnimator(player, filename=args.filename)
     animator.animate()
 
-    # f = os.path.abspath(args.filename)
-    # subprocess.run([
-    #     'ffmpeg','-y',
-    #     '-i','{}.mp4'.format(f),
-    #     '-i','{}.wav'.format(f),
-    #     '-map','0:v','-map','1:a','-c','copy',
-    #     '{}.mov'.format(f)
-    # ])
+    f = os.path.abspath(args.filename)
+    subprocess.run([
+        'ffmpeg','-y',
+        '-i','{}.mp4'.format(f),
+        '-i','{}.wav'.format(f),
+        '-map','0:v','-map','1:a','-c','copy',
+        '{}.mov'.format(f)
+    ])
 
 if __name__ == '__main__':
     import argparse

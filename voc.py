@@ -109,17 +109,17 @@ class Voc:
     # Setters
     #TODO Currently, trachea, epiglottis, lips are fixed. They don't have to be.
     def diameters(self, blade_start: int,
-                  lip_start: int,
                   tip_start: int,
                   tongue_index: float,
                   tongue_diameter: float):
 
-        grid_offset = 0.0 #1.7
+        grid_offset = 1.7 #TODO: Possibly 0.0
         fixed_tongue_diameter = 2 + (tongue_diameter - 2) / 1.5
         tongue_amplitude = (1.5 - fixed_tongue_diameter + grid_offset)
 
         # diameters = self.tract.target_diameter.copy()
         diameters = self.tract.target_diameter.copy()
+        lip_start = self.tract.lip_start
 
         # for i in range(blade_start, lip_start):
         #     t = 1.1 * math.pi * float(tongue_index - i) / float(tip_start - blade_start)
@@ -170,7 +170,7 @@ class Voc:
         :param tongue_diameter: Should be between [2.0, 3.5].
         :return: None
         '''
-        self.diameters(10, 39, 32, tongue_index, tongue_diameter)
+        self.diameters(10, 32, tongue_index, tongue_diameter)
 
     @velum.setter
     def velum(self, v):
@@ -180,3 +180,18 @@ class Voc:
         :return:
         '''
         self.tract.velum_target = v
+
+    def set_glottis_parameters(self, enable=True, frequency=140):
+        if enable:
+            self.glottis_enable()
+        else:
+            self.glottis_disable()
+
+        self.glottis.freq = frequency
+
+    def set_tract_parameters(self, trachea=0.6, epiglottis=1.1, velum=0.01, tongue_index=20, tongue_diameter=2.0, lips=1.5):
+        self.tract.trachea = trachea
+        self.tract.epiglottis = epiglottis
+        self.velum = velum
+        self.tongue_shape(tongue_index, tongue_diameter)
+        self.tract.lips = lips
