@@ -2,7 +2,7 @@ from timeit import timeit
 
 import numpy as np
 
-from voc import Voc, CHUNK
+from pynkTrombone.voc import Voc
 
 n = int(round(48000 / 512)) # The number of times needed to produce a second of sound.
 

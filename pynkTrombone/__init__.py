@@ -1,3 +1,5 @@
+from .app import PynkTrombone  # noqa: F401
+
 def process():
     pass
 

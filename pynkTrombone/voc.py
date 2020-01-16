@@ -1,11 +1,10 @@
-import math
 from typing import List
 
 import numpy as np
 
-from glottis import Glottis
-from tools import sp_data
-from tract import Tract
+from pynkTrombone.glottis import Glottis
+from pynkTrombone.tools import sp_data
+from pynkTrombone.tract import Tract
 
 CHUNK = 512
 

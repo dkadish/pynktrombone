@@ -1,6 +1,6 @@
 import joblib
 
-from voc import Voc, CHUNK
+from pynkTrombone.voc import Voc, CHUNK
 
 v = Voc(48000.0)
 voc_out = v.compute(randomize=False)

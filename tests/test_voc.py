@@ -3,9 +3,8 @@ import unittest
 import joblib
 import numpy as np
 
-from voc import Voc, CHUNK
-from tract import Tract
-from glottis import Glottis
+from pynkTrombone.voc import Voc, CHUNK
+
 
 class TestVocComputes(unittest.TestCase):
     def setUp(self):

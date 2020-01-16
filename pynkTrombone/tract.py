@@ -1,8 +1,8 @@
 import numpy as np
 np.seterr(divide='warn', over='warn', invalid='warn')
 
-from tools import move_towards
-from transient import MAX_TRANSIENTS, TransientPool, Transient
+from pynkTrombone.tools import move_towards
+from pynkTrombone.transient import MAX_TRANSIENTS, TransientPool, Transient
 
 zeros = lambda n: np.zeros(n, dtype=np.float32)
 

@@ -3,7 +3,7 @@ from random import random
 
 import numpy as np
 
-from tools import move_towards, sp_data
+from pynkTrombone.tools import move_towards
 
 
 class Glottis:
