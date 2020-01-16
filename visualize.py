@@ -164,7 +164,7 @@ if __name__ == '__main__':
     parser.add_argument('--filename', action='store', default='trombone')
 
     # parser.add_argument('features', action='store', default='./features.jbl')
-    # parser.add_argument('config', action='store', default='./config')
+    # parser.add_argument('config.conf', action='store', default='./config.conf')
     # parser.add_argument('-i', '--interval',  default=5)
     # parser.add_argument('--ignore-existing', action='store_true', default=False)
     # parser.add_argument('-b', '--bins', default=64)
