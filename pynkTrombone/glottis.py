@@ -146,8 +146,8 @@ class Glottis:
         else:
             out = self.E0 * math.exp(self.alpha * t) * math.sin(self.omega * t)
 
-        # voice_loudness = pow(self.tenseness, 0.25)
-        # out *= voice_loudness
+        voice_loudness = pow(self.tenseness, 0.25)
+        out *= voice_loudness
 
         if randomize:
             # noise = 1.0 * random() - 0.5 #FIXME Test this...
