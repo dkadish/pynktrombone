@@ -47,11 +47,79 @@ class glottis:
         self.omega: float
         self.T: float = 1.0 / sr  # big T
 
-        self = glottis_setup_waveform(self, 0)
+        self.glottis_setup_waveform(0)
 
     # static void glottis_init(glottis *glot, SPFLOAT sr)
     # CHANGE: glot is not a pointer, is returned from fn
     # def glottis_init(glot: glottis, sr: float) -> glottis:
+
+    # static void glottis_setup_waveform(glottis *glot, SPFLOAT lmbd)
+    # CHANGE: glot is not a pointer, is returned from fn
+    def glottis_setup_waveform(self, lmbd: float):
+        Rd: float
+        Ra: float
+        Rk: float
+        Rg: float
+
+        Ta: float
+        Tp: float
+        Te: float
+
+        epsilon: float
+        shift: float
+        delta: float
+        rhs_integral: float
+
+        lower_integral: float
+        upper_integral: float
+
+        omega: float
+        s: float
+        y: float
+        z: float
+
+        alpha: float
+        E0: float
+
+        self.Rd = 3 * (1 - self.tenseness)
+        self.waveform_length = 1.0 / self.freq
+
+        Rd = self.Rd
+        if (Rd < 0.5): Rd = 0.5
+        if (Rd > 2.7): Rd = 2.7
+
+        Ra = -0.01 + 0.048 * Rd
+        Rk = 0.224 + 0.118 * Rd
+        Rg = (Rk / 4) * (0.5 + 1.2 * Rk) / (0.11 * Rd - Ra * (0.5 + 1.2 * Rk))
+
+        Ta = Ra
+        Tp = float(1.0 / (2 * Rg))
+        Te = Tp + Tp * Rk
+
+        epsilon = float(1.0 / Ta)
+        shift = exp(-epsilon * (1 - Te))
+        delta = 1 - shift
+
+        rhs_integral = float((1.0 / epsilon) * (shift - 1) + (1 - Te) * shift)
+        rhs_integral = rhs_integral / delta
+        lower_integral = - (Te - Tp) / 2 + rhs_integral
+        upper_integral = -lower_integral
+
+        omega = M_PI / Tp
+        s = sin(omega * Te)
+
+        y = -M_PI * s * upper_integral / (Tp * 2)
+        z = log(y)
+        alpha = z / (Tp / 2 - Te)
+        E0 = -1 / (s * exp(alpha * Te))
+
+        self.alpha = alpha
+        self.E0 = E0
+        self.epsilon = epsilon
+        self.shift = shift
+        self.delta = delta
+        self.Te = Te
+        self.omega = omega
 
 
 class transient:
@@ -279,77 +347,6 @@ class sp_voc:
     # {
     #     return &voc->tr.velum_target
     # }
-
-
-# static void glottis_setup_waveform(glottis *glot, SPFLOAT lmbd)
-# CHANGE: glot is not a pointer, is returned from fn
-def glottis_setup_waveform(glot: glottis, lmbd: float) -> glottis:
-    Rd: float
-    Ra: float
-    Rk: float
-    Rg: float
-
-    Ta: float
-    Tp: float
-    Te: float
-
-    epsilon: float
-    shift: float
-    delta: float
-    rhs_integral: float
-
-    lower_integral: float
-    upper_integral: float
-
-    omega: float
-    s: float
-    y: float
-    z: float
-
-    alpha: float
-    E0: float
-
-    glot.Rd = 3 * (1 - glot.tenseness)
-    glot.waveform_length = 1.0 / glot.freq
-
-    Rd = glot.Rd
-    if (Rd < 0.5): Rd = 0.5
-    if (Rd > 2.7): Rd = 2.7
-
-    Ra = -0.01 + 0.048 * Rd
-    Rk = 0.224 + 0.118 * Rd
-    Rg = (Rk / 4) * (0.5 + 1.2 * Rk) / (0.11 * Rd - Ra * (0.5 + 1.2 * Rk))
-
-    Ta = Ra
-    Tp = float(1.0 / (2 * Rg))
-    Te = Tp + Tp * Rk
-
-    epsilon = float(1.0 / Ta)
-    shift = exp(-epsilon * (1 - Te))
-    delta = 1 - shift
-
-    rhs_integral = float((1.0 / epsilon) * (shift - 1) + (1 - Te) * shift)
-    rhs_integral = rhs_integral / delta
-    lower_integral = - (Te - Tp) / 2 + rhs_integral
-    upper_integral = -lower_integral
-
-    omega = M_PI / Tp
-    s = sin(omega * Te)
-
-    y = -M_PI * s * upper_integral / (Tp * 2)
-    z = log(y)
-    alpha = z / (Tp / 2 - Te)
-    E0 = -1 / (s * exp(alpha * Te))
-
-    glot.alpha = alpha
-    glot.E0 = E0
-    glot.epsilon = epsilon
-    glot.shift = shift
-    glot.delta = delta
-    glot.Te = Te
-    glot.omega = omega
-
-    return glot
 
 
 # static SPFLOAT glottis_compute(sp_data *sp, glottis *glot, SPFLOAT lmbd)
