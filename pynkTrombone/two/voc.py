@@ -4,6 +4,10 @@ from itertools import count
 from math import exp, sin, log, sqrt, cos
 from typing import List, Tuple
 
+import random as rnd
+from random import random
+rnd.seed(a=42)
+
 M_PI = 3.14159265358979323846
 
 EPSILON = 1.0e-38
@@ -20,15 +24,6 @@ class sp_data:
         self.pos: int = 0
         self.filename: str = 'test.wav'
         self.rand: int = 0
-
-
-SP_RANDMAX = 2147483648
-
-
-def sp_rand(sp: sp_data) -> int:
-    val = (1103515245 * sp.rand + 12345) % SP_RANDMAX
-    sp.rand = val
-    return val
 
 
 class Glottis:
@@ -145,7 +140,7 @@ class Glottis:
         else:
             out = self.E0 * exp(self.alpha * t) * sin(self.omega * t)
 
-        noise = 2.0 * float(sp_rand(sp) / SP_RANDMAX) - 1
+        noise = 2.0 * random() - 1
 
         aspiration = intensity * (1 - sqrt(self.tenseness)) * 0.3 * noise
 
@@ -667,7 +662,6 @@ def move_towards(current: float, target: float, amt_up: float, amt_down: float) 
 
 def zeros(n):
     return [0.0 for _ in range(n)]
-
 
 class Mode(Enum):
     VOC_NONE = 0
