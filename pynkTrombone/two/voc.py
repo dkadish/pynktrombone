@@ -1,5 +1,7 @@
 from enum import Enum
 
+from functools import partial
+from itertools import count
 from math import exp, sin, log, sqrt, cos
 from typing import List, Tuple
 
@@ -34,7 +36,7 @@ class glottis:
 
     def __init__(self, sr: float):
         self.freq: float = 140  # 140Hz frequency by default
-        self.tenseness: float = 0.6 # value between 0 and 1
+        self.tenseness: float = 0.6  # value between 0 and 1
         self.Rd: float
         self.waveform_length: float
         self.time_in_waveform: float = 0
@@ -123,26 +125,28 @@ class glottis:
 
 
 class transient:
-    def __init__(self, i: int):
+    ids = count(0)
+
+    def __init__(self):
         self.position: int = 0
         self.time_alive: float = 0
         self.lifetime: float
         self.strength: float = 0
         self.exponent: float = 0
         self.is_free: str = 1
-        self.id: int = i
+        self.id: int = next(self.ids)
         self.next: transient  # PTR
 
 
 class transient_pool:
     def __init__(self):
-        self.pool: List[transient] = [] # Should be limited to MAX_TRANSIENTS
-        self.root: transient  # PTR
+        self.pool: List[transient] = []  # Should be limited to MAX_TRANSIENTS
+        self.root: transient = None  # PTR
         self.size: int = 0
         self.next_free: int = 0
 
         for i in range(MAX_TRANSIENTS):
-            self.pool.append(transient(i))
+            self.pool.append(transient())
 
 
 class tract:
@@ -150,7 +154,7 @@ class tract:
         self.n: int = 44
 
         self.diameter: List[float] = zeros(self.n)  # len = 44
-        self.rest_diameter: List[float]  = zeros(self.n) # len = 44
+        self.rest_diameter: List[float] = zeros(self.n)  # len = 44
         self.target_diameter: List[float] = zeros(self.n)  # len = 44
         self.new_diameter: List[float] = zeros(self.n)  # len = 44
         self.R: List[float] = zeros(self.n)  # len = 44
@@ -170,7 +174,8 @@ class tract:
         self.noseR: List[float] = zeros(self.nose_length)  # len = 28
         self.nose_junc_outL: List[float] = zeros(self.nose_length + 1)  # len = 29
         self.nose_junc_outR: List[float] = zeros(self.nose_length + 1)  # len = 29
-        self.nose_reflection: List[float]  # len = 29
+        # FIXME: I don't think self.nose_reflection[0] ever gets touched.
+        self.nose_reflection: List[float] = zeros(self.nose_length + 1)  # len = 29
         self.nose_diameter: List[float] = zeros(self.nose_length)  # len = 28
         self.noseA: List[float] = zeros(self.nose_length)  # len = 28
 
@@ -196,7 +201,7 @@ class tract:
         self.tpool: transient_pool = transient_pool()
         self.T: float = 1.0 / sr
 
-        #TODO Pythonify
+        # TODO Pythonify
         for i in range(self.n):
             diameter = 0
             if i < 7 * float(self.n) / 44 - 0.5:
@@ -208,7 +213,7 @@ class tract:
 
             self.diameter[i] = self.rest_diameter[i] = self.target_diameter[i] = self.new_diameter[i] = diameter
 
-        #TODO Pythonify
+        # TODO Pythonify
         for i in range(self.nose_length):
             d = 2 * (float(i) / self.nose_length)
             if d < 1:
@@ -219,9 +224,9 @@ class tract:
             diameter = min(diameter, 1.9)
             self.nose_diameter[i] = diameter
 
-        #TODO Pythonify. This *SHOULD* work right now, but it's dumb
-        self = tract_calculate_reflections(self)
-        self = tract_calculate_nose_reflections(self)
+        # TODO Pythonify. This *SHOULD* work right now, but it's dumb
+        self.tract_calculate_reflections()
+        self.tract_calculate_nose_reflections()
         self.nose_diameter[0] = self.velum_target
 
     # static void tract_init(sp_data *sp, tract *tr)
@@ -229,13 +234,52 @@ class tract:
     # CHANGE: tr is not a pointer, is returned from fn
     # def tract_init(tr: tract, sr: float) -> tract:
 
+    # static void tract_calculate_reflections(tract *tr)
+    # CHANGE: tr is not a pointer, is returned from fn
+    def tract_calculate_reflections(self):
+        # TODO refactor rename i
+        i: int
+        _sum: float
+
+        for i in range(self.n):
+            self.A[i] = self.diameter[i] * self.diameter[i]
+            # /* Calculate area from diameter squared*/
+
+        for i in range(1, self.n):
+            self.reflection[i] = self.new_reflection[i]
+            if self.A[i] == 0:
+                self.new_reflection[i] = 0.999  # /* to prevent bad behavior if 0 */
+            else:
+                self.new_reflection[i] = (self.A[i - 1] - self.A[i]) / (self.A[i - 1] + self.A[i])
+
+        self.reflection_left = self.new_reflection_left
+        self.reflection_right = self.new_reflection_right
+        self.reflection_nose = self.new_reflection_nose
+
+        _sum = self.A[self.nose_start] + self.A[self.nose_start + 1] + self.noseA[0]
+        self.new_reflection_left = float(2 * self.A[self.nose_start] - _sum) / _sum
+        self.new_reflection_right = float(2 * self.A[self.nose_start + 1] - _sum) / _sum
+        self.new_reflection_nose = float(2 * self.noseA[0] - _sum) / _sum
+
+    # static void tract_calculate_nose_reflections(tract *tr)
+    # CHANGE: tr is not a pointer, is returned from fn
+    def tract_calculate_nose_reflections(self):
+        # TODO refactor rename i
+        i: int
+
+        for i in range(self.nose_length):
+            self.noseA[i] = self.nose_diameter[i] * self.nose_diameter[i]
+
+        for i in range(1, self.nose_length):
+            self.nose_reflection[i] = (self.noseA[i - 1] - self.noseA[i]) / (self.noseA[i - 1] + self.noseA[i])
+
+
 class sp_voc:
     # int sp_voc_init(sp_data *sp, sp_voc *voc)
     def __init__(self, sp: sp_data):
-        self.glot: glottis = glottis()
-        self.glot = glottis_init(self.glot, sp.sr)  # /* initialize glottis */
+        self.glot: glottis = glottis(sp.sr)
         self.tr: tract = tract(sp.sr)
-        self.buf: List[float]  # len = 512
+        self.buf: List[float] = zeros(512)  # len = 512
         self._counter: int = 0
 
     @property
@@ -306,6 +350,10 @@ class sp_voc:
     def counter(self) -> int:
         return self._counter
 
+    @counter.setter
+    def counter(self, i):
+        self._counter = i
+
     # int sp_voc_get_counter(sp_voc *voc)
     # {
     #     return voc->counter
@@ -333,7 +381,7 @@ class sp_voc:
     def velum(self) -> float:
         return self.tr.velum_target
 
-    @tenseness.setter
+    @velum.setter
     def velum(self, t: float):
         self.tr.velum_target = t
 
@@ -363,7 +411,7 @@ def glottis_compute(sp: sp_data, glot: glottis, lmbd: float) -> Tuple[sp_data, g
 
     if (glot.time_in_waveform > glot.waveform_length):
         glot.time_in_waveform -= glot.waveform_length
-        glot = glottis_setup_waveform(glot, lmbd)
+        glot.glottis_setup_waveform(lmbd)
 
     t = (glot.time_in_waveform / glot.waveform_length)
 
@@ -381,47 +429,6 @@ def glottis_compute(sp: sp_data, glot: glottis, lmbd: float) -> Tuple[sp_data, g
     out += aspiration
 
     return sp, glot, out
-
-
-# static void tract_calculate_reflections(tract *tr)
-# CHANGE: tr is not a pointer, is returned from fn
-def tract_calculate_reflections(tr: tract) -> tract:
-    # TODO refactor rename i
-    i: int
-    _sum: float
-
-    for i in range(tr.n):
-        tr.A[i] = tr.diameter[i] * tr.diameter[i]
-        # /* Calculate area from diameter squared*/
-
-    for i in range(1, tr.n):
-        tr.reflection[i] = tr.new_reflection[i]
-        if tr.A[i] == 0:
-            tr.new_reflection[i] = 0.999  # /* to prevent bad behavior if 0 */
-        else:
-            tr.new_reflection[i] = (tr.A[i - 1] - tr.A[i]) / (tr.A[i - 1] + tr.A[i])
-
-    tr.reflection_left = tr.new_reflection_left
-    tr.reflection_right = tr.new_reflection_right
-    tr.reflection_nose = tr.new_reflection_nose
-
-    _sum = tr.A[tr.nose_start] + tr.A[tr.nose_start + 1] + tr.noseA[0]
-    tr.new_reflection_left = float(2 * tr.A[tr.nose_start] - _sum) / _sum
-    tr.new_reflection_right = float(2 * tr.A[tr.nose_start + 1] - _sum) / _sum
-    tr.new_reflection_nose = float(2 * tr.noseA[0] - _sum) / _sum
-
-
-# static void tract_calculate_nose_reflections(tract *tr)
-# CHANGE: tr is not a pointer, is returned from fn
-def tract_calculate_nose_reflections(tr: tract) -> tract:
-    # TODO refactor rename i
-    i: int
-
-    for i in range(tr.nose_length):
-        tr.noseA[i] = tr.nose_diameter[i] * tr.nose_diameter[i]
-
-    for i in range(1, tr.nose_length):
-        tr.nose_reflection[i] = (tr.noseA[i - 1] - tr.noseA[i]) / (tr.noseA[i - 1] + tr.noseA[i])
 
 
 # static int append_transient(transient_pool *pool, int position)
@@ -534,7 +541,7 @@ def tract_reshape(tr: tract) -> tract:
                                        amount * 0.25, amount * 0.1)
     tr.noseA[0] = tr.nose_diameter[0] * tr.nose_diameter[0]
 
-    return tract
+    return tr
 
 
 def zeros(n):
@@ -614,7 +621,7 @@ def sp_voc_compute(sp: sp_data, voc: sp_voc, out: float) -> Tuple[sp_data, sp_vo
 
     if voc.counter == 0:
         voc.tr = tract_reshape(voc.tr)
-        voc.tr = tract_calculate_reflections(voc.tr)
+        voc.tr.tract_calculate_reflections()
         for i in range(512):
             vocal_output = 0
             lmbd1 = float(i) / 512
@@ -634,14 +641,15 @@ def sp_voc_compute(sp: sp_data, voc: sp_voc, out: float) -> Tuple[sp_data, sp_vo
 
 
 # int sp_voc_tract_compute(sp_data *sp, sp_voc *voc, SPFLOAT *in, SPFLOAT *out)
+# NOTE: This function is not called anywhere. Ignore it...
 def sp_voc_tract_compute(sp: sp_data, voc: sp_voc, _in: float, out: float) -> Tuple[sp_data, sp_voc, float]:
     vocal_output: float
     lmbd1: float
     lmbd2: float
 
     if voc.counter == 0:
-        voc.tr = tract_reshape(voc.tr)
-        voc.tr = tract_calculate_reflections(voc.tr)
+        voc.tr.tract_reshape()
+        voc.tr.tract_calculate_reflections()
 
     vocal_output = 0
     lmbd1 = float(voc.counter) / 512
@@ -717,32 +725,28 @@ class RtAudioStreamStatus:
 
 
 class voc_demo_d():
-        def __init__(self):
-            self.sp: sp_data  # Former pointer
-            self.voc: sp_voc  # Former pointer
-            self.tract: float  # Former pointer
-            self.freq: float  # Former pointer
-            self.velum: float  # Former pointer
-            self.tenseness: float  # Former pointer
-            self.tract_size: int
-            self.gain: float
-            self.mode: int
-            self.tongue_pos: float
-            self.tongue_diam: float
+    def __init__(self):
+        self.sp: sp_data = sp_data()  # Former pointer
+        self.voc: sp_voc = sp_voc(self.sp)  # Former pointer
+        self.tract: float = self.voc.tract_diameters  # Former pointer
+        self.freq: float = self.voc.frequency  # Former pointer
+        self.velum: float = self.voc.velum  # Former pointer
+        self.tenseness: float = self.voc.tenseness  # Former pointer
+        self.tract_size: int = self.voc.tract_size
+        self.gain: float = 1
+        self.mode: int = Mode.VOC_NONE
+        self.tongue_pos: float
+        self.tongue_diam: float
 
-def sd_callback(indata, outdata, frames, time, status, voc_demo_d):
-    outdata[:] = callme(outdata, indata, frames, time, status, voc_demo_d)
 
 # static int callme( void * outputBuffer, void * inputBuffer, unsigned int numFrames,
 #             double streamTime, RtAudioStreamStatus status, void * data )
-def callme(outputBuffer: List[float], inputBuffer, numFrames: int, streamTime: float, status: RtAudioStreamStatus,
-           data: voc_demo_d) -> Tuple[List[float]]:
-    output = outputBuffer
+def callme(output: List[float], numFrames: int, data: voc_demo_d) -> Tuple[List[float]]:
     i: int
     vd: voc_demo_d = data  # Former pointer
-    tmp: float
+    tmp: float = 0.0  # TODO redundant
 
-    for i in range(0, numFrames * 2, 2):
+    for i in range(numFrames):
         if vd.voc.counter == 0:
             if vd.mode == Mode.VOC_TONGUE:
                 vd.voc = sp_voc_set_tongue_shape(vd.voc,
@@ -750,46 +754,47 @@ def callme(outputBuffer: List[float], inputBuffer, numFrames: int, streamTime: f
 
         vd.sp, vd.voc, tmp = sp_voc_compute(vd.sp, vd.voc, tmp)
         tmp *= vd.gain
-        output[i] = tmp
-        output[i + 1] = tmp
+        output[i, 0] = tmp
+        output[i, 1] = tmp
 
     return output
+
+
+def sd_callback(outdata, frames, time, status, vdd: voc_demo_d):
+    indata = None
+    outdata[:] = callme(outdata, indata, frames, time, status, vdd)
 
 
 def setup():
     buffer_frames: int = 1024
 
-    # TODO Replace with pyAudio/sounddevice
-    # RtAudio::DeviceInfo info
-    # RtAudio::StreamParameters iParams, oParams
-    # info = audio.getDeviceInfo(audio.getDefaultOutputDevice())
-    # iParams.deviceId = audio.getDefaultInputDevice()
-    # iParams.nChannels = 0
-    # iParams.firstChannel = 0
-    # oParams.deviceId = audio.getDefaultOutputDevice()
-    # oParams.nChannels = 2
-    # oParams.firstChannel = 0
-    #
-    # RtAudio::StreamOptions options
-    #
-    #
-    # audio.openStream( &oParams, NULL,
-    #         RTAUDIO_FLOAT32, info.preferredSampleRate,
-    #         &buffer_frames, &callme, vd, &options)
-    # audio.showWarnings( true )
+    vdd: voc_demo_d = voc_demo_d()
+    vdd.freq = 160
 
-    sp = sp_data()
-    voc = sp_voc(sp)
-    tract = voc.tract_diameters
-    tract_size = voc.tract_size
-    freq = voc.frequency
-    velum = voc.velum
-    tenseness = voc.tenseness
-
-    freq = 160
-    gain = 1
-    mode = Mode.VOC_NONE
-
+    return vdd
 
 def main():
-    pass
+    import numpy as np
+    import soundfile as sf
+
+    vdd = setup()
+    idx, diam, x, y = sin(0)*2.5+23, sin(0)*1.5/2+2.75, 0.0, 0.0
+    vdd.voc = sp_voc_set_tongue_shape(vdd.voc, idx, diam)
+
+    output = np.empty(shape=(1024, 2))
+    out = callme(output, 1024, vdd)
+    while out.shape[0] < vdd.sp.sr * 5:
+        output = np.empty(shape=(1024, 2))
+        out = np.concatenate([out, callme(output, 1024, vdd)])
+
+        x += 0#.1
+        y += 0.1
+        idx, diam = sin(x)*2.5+23, sin(y)*1.5/2+2.75
+        vdd.voc = sp_voc_set_tongue_shape(vdd.voc, idx, diam)
+
+        print(out.shape, idx, diam)
+
+    sf.write('stereo_file.wav', out, vdd.sp.sr)
+
+if __name__ == '__main__':
+    main()
