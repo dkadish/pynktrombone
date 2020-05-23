@@ -137,9 +137,15 @@ class transient:
         self.id: int = next(self.ids)
         self.next: transient  # PTR
 
+    @classmethod
+    def reset_count(self):
+        self.ids = count(0)
+
 
 class transient_pool:
     def __init__(self):
+        transient.reset_count()
+
         self.pool: List[transient] = []  # Should be limited to MAX_TRANSIENTS
         self.root: transient = None  # PTR
         self.size: int = 0
