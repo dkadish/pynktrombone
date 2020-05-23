@@ -2,7 +2,7 @@ from typing import Tuple, List
 
 from math import sin
 
-from pynkTrombone.two.voc import voc_demo_d, sp_voc_set_tongue_shape, sp_voc_compute, Mode
+from pynkTrombone.two.voc import voc_demo_d, Mode
 
 import numpy as np
 import soundfile as sf
@@ -17,10 +17,9 @@ def callme(output: List[float], numFrames: int, data: voc_demo_d) -> Tuple[List[
     for i in range(numFrames):
         if vd.voc.counter == 0:
             if vd.mode == Mode.VOC_TONGUE:
-                vd.voc = sp_voc_set_tongue_shape(vd.voc,
-                                                 vd.tongue_pos, vd.tongue_diam)
+                vd.voc.set_tongue_shape(vd.tongue_pos, vd.tongue_diam)
 
-        vd.sp, vd.voc, tmp = sp_voc_compute(vd.sp, vd.voc, tmp)
+        vd.sp, tmp = vd.voc.compute(vd.sp, tmp)
         tmp *= vd.gain
         output[i, 0] = tmp
         output[i, 1] = tmp
@@ -40,7 +39,7 @@ def tongue_index():
 
     vdd = setup()
     idx, diam, x, y = sin(0)*2.5+23, sin(0)*1.5/2+2.75, 0.0, 0.0
-    vdd.voc = sp_voc_set_tongue_shape(vdd.voc, idx, diam)
+    vdd.voc.set_tongue_shape(idx, diam)
 
     output = np.empty(shape=(1024, 2))
     out = callme(output, 1024, vdd)
@@ -51,7 +50,7 @@ def tongue_index():
         x += 0.1
         y += 0#.1
         idx, diam = sin(x)*2.5+23, sin(y)*1.5/2+2.75
-        vdd.voc = sp_voc_set_tongue_shape(vdd.voc, idx, diam)
+        vdd.voc.set_tongue_shape(idx, diam)
 
         print(out.shape, idx, diam)
 
@@ -61,7 +60,7 @@ def tongue_diameter():
 
     vdd = setup()
     idx, diam, x, y = sin(0)*2.5+23, sin(0)*1.5/2+2.75, 0.0, 0.0
-    vdd.voc = sp_voc_set_tongue_shape(vdd.voc, idx, diam)
+    vdd.voc.set_tongue_shape(idx, diam)
 
     output = np.empty(shape=(1024, 2))
     out = callme(output, 1024, vdd)
@@ -72,7 +71,7 @@ def tongue_diameter():
         x += 0#.1
         y += 0.1
         idx, diam = sin(x)*2.5+23, sin(y)*1.5/2+2.75
-        vdd.voc = sp_voc_set_tongue_shape(vdd.voc, idx, diam)
+        vdd.voc.set_tongue_shape(idx, diam)
 
         print(out.shape, idx, diam)
 
@@ -98,7 +97,7 @@ def lips_open_shut():
         x += 0.5
         lips = sin(x) * 1.5 / 2.0 + 0.75
         vdd.voc.tract_diameters[39:] = [lips for _ in range(n)]
-        # vdd.voc.frequency += 0.5
+        # vdd.self.frequency += 0.5
 
         print(out.shape, lips)
 
@@ -122,7 +121,7 @@ def throat_open_shut():
         x += 0.5
         throat = sin(x) * 1.5 / 2.0 + 0.75
         vdd.voc.tract_diameters[:7] = [throat for _ in range(n)]
-        # vdd.voc.frequency += 0.5
+        # vdd.self.frequency += 0.5
 
         print(out.shape, throat)
 
@@ -153,7 +152,7 @@ def throat_and_lips():
         y += 0.5
         throat = sin(y) * 1.5 / 2.0 + 0.75
         vdd.voc.tract_diameters[:7] = [throat for _ in range(n_t)]
-        # vdd.voc.frequency += 0.5
+        # vdd.self.frequency += 0.5
 
         print(out.shape, throat)
 
@@ -162,7 +161,7 @@ def throat_and_lips():
 def main():
     vdd = setup()
     idx, diam, x, y = sin(0)*2.5+23, sin(0)*1.5/2+2.75, 0.0, 0.0
-    vdd.voc = sp_voc_set_tongue_shape(vdd.voc, idx, diam)
+    vdd.voc.set_tongue_shape(idx, diam)
     # with sd.OutputStream(samplerate=vdd.sp.sr, channels=2, blocksize=1024, callback=partial(sd_callback, vdd=vdd)):
     #     sd.sleep(int(5 * 1000))
 
@@ -175,16 +174,16 @@ def main():
         x += 0#.1
         y += 0.1
         idx, diam = sin(x)*2.5+23, sin(y)*1.5/2+2.75
-        vdd.voc = sp_voc_set_tongue_shape(vdd.voc, idx, diam)
-        # vdd.voc.frequency += 0.5
+        vdd.voc.set_tongue_shape(idx, diam)
+        # vdd.self.frequency += 0.5
 
         print(out.shape, idx, diam)
 
     sf.write('stereo_file.wav', out, vdd.sp.sr)
 
 if __name__ == '__main__':
-    # tongue_index()
-    # tongue_diameter()
-    # lips_open_shut()
-    # throat_open_shut()
     throat_and_lips()
+    tongue_index()
+    tongue_diameter()
+    lips_open_shut()
+    throat_open_shut()
