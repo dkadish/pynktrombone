@@ -1,45 +1,34 @@
-# include <stdlib.h>
-# include <math.h>
-# include <string.h>
-# include "soundpipe.h"
-from math import exp, sin, log, sqrt, cos
+from enum import Enum
 
+from math import exp, sin, log, sqrt, cos
 from typing import List, Tuple
 
 M_PI = 3.14159265358979323846
-
-# include "voc.h"
-
-# ifndef MIN
-# define MIN(A,B) ((A) < (B) ? (A) : (B))
-# endif
-
-# ifndef MAX
-# define MAX(A,B) ((A) > (B) ? (A) : (B))
-# endif
 
 EPSILON = 1.0e-38
 
 MAX_TRANSIENTS = 4
 
 
-#################################################################
-# TODO Replace Dummies
-# DUMMY CLASS
 class sp_data:
-    pass
+    def __init__(self):
+        self.out: float = 0.0
+        self.sr: int = 44100
+        self.nchan: int = 1
+        self.len: int = 5 * self.sr
+        self.pos: int = 0
+        self.filename: str = 'test.wav'
+        self.rand: int = 0
 
 
-# DUMMY METHOD
-def sp_rand(sp):
-    pass
+SP_RANDMAX = 2147483648
 
 
-# DUMMY VAR
-SP_RANDMAX = 0
+def sp_rand(sp: sp_data) -> int:
+    val = (1103515245 * sp.rand + 12345) % SP_RANDMAX
+    sp.rand = val
+    return val
 
-
-#################################################################
 
 class glottis:
 
@@ -150,13 +139,13 @@ class sp_voc:
 
     # void sp_voc_set_frequency(sp_voc *voc, SPFLOAT freq)
     # {
-    #     voc->glot.freq = freq;
+    #     voc->glot.freq = freq
     # }
     #
     #
     # SPFLOAT * sp_voc_get_frequency_ptr(sp_voc *voc)
     # {
-    #     return &voc->glot.freq;
+    #     return &voc->glot.freq
     # }
 
     @property
@@ -165,7 +154,7 @@ class sp_voc:
 
     # SPFLOAT* sp_voc_get_tract_diameters(sp_voc *voc)
     # {
-    #     return voc->tr.target_diameter;
+    #     return voc->tr.target_diameter
     # }
 
     @property
@@ -174,7 +163,7 @@ class sp_voc:
 
     # SPFLOAT* sp_voc_get_current_tract_diameters(sp_voc *voc)
     # {
-    #     return voc->tr.diameter;
+    #     return voc->tr.diameter
     # }
 
     @property
@@ -183,7 +172,7 @@ class sp_voc:
 
     # int sp_voc_get_tract_size(sp_voc *voc)
     # {
-    #     return voc->tr.n;
+    #     return voc->tr.n
     # }
 
     @property
@@ -192,7 +181,7 @@ class sp_voc:
 
     # SPFLOAT* sp_voc_get_nose_diameters(sp_voc *voc)
     # {
-    #     return voc->tr.nose_diameter;
+    #     return voc->tr.nose_diameter
     # }
 
     @property
@@ -201,7 +190,7 @@ class sp_voc:
 
     # int sp_voc_get_nose_size(sp_voc *voc)
     # {
-    #     return voc->tr.nose_length;
+    #     return voc->tr.nose_length
     # }
 
     @property
@@ -210,7 +199,7 @@ class sp_voc:
 
     # int sp_voc_get_counter(sp_voc *voc)
     # {
-    #     return voc->counter;
+    #     return voc->counter
     # }
 
     @property
@@ -223,12 +212,12 @@ class sp_voc:
 
     # SPFLOAT * sp_voc_get_tenseness_ptr(sp_voc *voc)
     # {
-    #     return &voc->glot.tenseness;
+    #     return &voc->glot.tenseness
     # }
 
     # void sp_voc_set_tenseness(sp_voc *voc, SPFLOAT tenseness)
     # {
-    #     voc->glot.tenseness = tenseness;
+    #     voc->glot.tenseness = tenseness
     # }
 
     @property
@@ -241,13 +230,13 @@ class sp_voc:
 
     # void sp_voc_set_velum(sp_voc *voc, SPFLOAT velum)
     # {
-    #     voc->tr.velum_target = velum;
+    #     voc->tr.velum_target = velum
     # }
     #
     #
     # SPFLOAT *sp_voc_get_velum_ptr(sp_voc *voc)
     # {
-    #     return &voc->tr.velum_target;
+    #     return &voc->tr.velum_target
     # }
 
 
@@ -532,24 +521,24 @@ def tract_init(sp: sp_data, tr: tract) -> Tuple[sp_data, tract]:
     diameter: float
     d: float  # /* needed to set up diameter arrays */
 
-    tr.n = 44;
-    tr.nose_length = 28;
-    tr.nose_start = 17;
+    tr.n = 44
+    tr.nose_length = 28
+    tr.nose_start = 17
 
-    tr.reflection_left = 0.0;
-    tr.reflection_right = 0.0;
-    tr.reflection_nose = 0.0;
-    tr.new_reflection_left = 0.0;
-    tr.new_reflection_right = 0.0;
-    tr.new_reflection_nose = 0.0;
-    tr.velum_target = 0.01;
-    tr.glottal_reflection = 0.75;
-    tr.lip_reflection = -0.85;
-    tr.last_obstruction = -1;
-    tr.movement_speed = 15;
-    tr.lip_output = 0;
-    tr.nose_output = 0;
-    tr.tip_start = 32;
+    tr.reflection_left = 0.0
+    tr.reflection_right = 0.0
+    tr.reflection_nose = 0.0
+    tr.new_reflection_left = 0.0
+    tr.new_reflection_right = 0.0
+    tr.new_reflection_nose = 0.0
+    tr.velum_target = 0.01
+    tr.glottal_reflection = 0.75
+    tr.lip_reflection = -0.85
+    tr.last_obstruction = -1
+    tr.movement_speed = 15
+    tr.lip_output = 0
+    tr.nose_output = 0
+    tr.tip_start = 32
 
     tr.diameter = zeros(tr.n)
     tr.rest_diameter = zeros(tr.n)
@@ -570,42 +559,42 @@ def tract_init(sp: sp_data, tr: tract) -> Tuple[sp_data, tract]:
     tr.noseA = zeros(tr.nose_length)
 
     for i in range(tr.n):
-        diameter = 0;
+        diameter = 0
         if i < 7 * float(tr.n) / 44 - 0.5:
-            diameter = 0.6;
+            diameter = 0.6
         elif i < 12 * float(tr.n) / 44:
-            diameter = 1.1;
+            diameter = 1.1
         else:
-            diameter = 1.5;
+            diameter = 1.5
 
-        tr.diameter[i] = tr.rest_diameter[i] = tr.target_diameter[i] = tr.new_diameter[i] = diameter;
+        tr.diameter[i] = tr.rest_diameter[i] = tr.target_diameter[i] = tr.new_diameter[i] = diameter
 
     for i in range(tr.nose_length):
-        d = 2 * (float(i) / tr.nose_length);
+        d = 2 * (float(i) / tr.nose_length)
         if d < 1:
-            diameter = 0.4 + 1.6 * d;
+            diameter = 0.4 + 1.6 * d
         else:
-            diameter = 0.5 + 1.5 * (2 - d);
+            diameter = 0.5 + 1.5 * (2 - d)
 
-        diameter = min(diameter, 1.9);
-        tr.nose_diameter[i] = diameter;
+        diameter = min(diameter, 1.9)
+        tr.nose_diameter[i] = diameter
 
-    tract_calculate_reflections(tr);
-    tract_calculate_nose_reflections(tr);
-    tr.nose_diameter[0] = tr.velum_target;
+    tract_calculate_reflections(tr)
+    tract_calculate_nose_reflections(tr)
+    tr.nose_diameter[0] = tr.velum_target
 
     tr.block_time = 512.0 / float(sp.sr)
     tr.T = 1.0 / float(sp.sr)
 
-    tr.tpool.size = 0;
-    tr.tpool.next_free = 0;
+    tr.tpool.size = 0
+    tr.tpool.next_free = 0
     for i in range(MAX_TRANSIENTS):
-        tr.tpool.pool[i].is_free = 1;
-        tr.tpool.pool[i].id = i;
-        tr.tpool.pool[i].position = 0;
-        tr.tpool.pool[i].time_alive = 0;
-        tr.tpool.pool[i].strength = 0;
-        tr.tpool.pool[i].exponent = 0;
+        tr.tpool.pool[i].is_free = 1
+        tr.tpool.pool[i].id = i
+        tr.tpool.pool[i].position = 0
+        tr.tpool.pool[i].time_alive = 0
+        tr.tpool.pool[i].strength = 0
+        tr.tpool.pool[i].exponent = 0
 
     return sp, tract
 
@@ -778,6 +767,96 @@ def sp_voc_set_tongue_shape(voc: sp_voc,
     diameters: List[float]
     diameters = voc.tract_diameters
     voc, diameters = sp_voc_set_diameters(voc, 10, 39, 32,
-                                          tongue_index, tongue_diameter, diameters);
+                                          tongue_index, tongue_diameter, diameters)
 
     return voc
+
+
+class Mode(Enum):
+    VOC_NONE = 0
+    VOC_TONGUE = 1
+
+
+# DUMMY CLASS
+class RtAudioStreamStatus:
+    pass
+
+
+class voc_demo_d():
+        def __init__(self):
+            self.sp: sp_data  # Former pointer
+            self.voc: sp_voc  # Former pointer
+            self.tract: float  # Former pointer
+            self.freq: float  # Former pointer
+            self.velum: float  # Former pointer
+            self.tenseness: float  # Former pointer
+            self.tract_size: int
+            self.gain: float
+            self.mode: int
+            self.tongue_pos: float
+            self.tongue_diam: float
+
+def sd_callback(indata, outdata, frames, time, status, voc_demo_d):
+    outdata[:] = callme(outdata, indata, frames, time, status, voc_demo_d)
+
+# static int callme( void * outputBuffer, void * inputBuffer, unsigned int numFrames,
+#             double streamTime, RtAudioStreamStatus status, void * data )
+def callme(outputBuffer: List[float], inputBuffer, numFrames: int, streamTime: float, status: RtAudioStreamStatus,
+           data: voc_demo_d) -> Tuple[List[float]]:
+    output = outputBuffer
+    i: int
+    vd: voc_demo_d = data  # Former pointer
+    tmp: float
+
+    for i in range(0, numFrames * 2, 2):
+        if vd.voc.counter == 0:
+            if vd.mode == Mode.VOC_TONGUE:
+                vd.voc = sp_voc_set_tongue_shape(vd.voc,
+                                                 vd.tongue_pos, vd.tongue_diam)
+
+        vd.sp, vd.voc, tmp = sp_voc_compute(vd.sp, vd.voc, tmp)
+        tmp *= vd.gain
+        output[i] = tmp
+        output[i + 1] = tmp
+
+    return output
+
+
+def setup():
+    buffer_frames: int = 1024
+
+    # TODO Replace with pyAudio/sounddevice
+    # RtAudio::DeviceInfo info
+    # RtAudio::StreamParameters iParams, oParams
+    # info = audio.getDeviceInfo(audio.getDefaultOutputDevice())
+    # iParams.deviceId = audio.getDefaultInputDevice()
+    # iParams.nChannels = 0
+    # iParams.firstChannel = 0
+    # oParams.deviceId = audio.getDefaultOutputDevice()
+    # oParams.nChannels = 2
+    # oParams.firstChannel = 0
+    #
+    # RtAudio::StreamOptions options
+    #
+    #
+    # audio.openStream( &oParams, NULL,
+    #         RTAUDIO_FLOAT32, info.preferredSampleRate,
+    #         &buffer_frames, &callme, vd, &options)
+    # audio.showWarnings( true )
+
+    sp = sp_data()
+    voc = sp_voc()
+    sp, voc = sp_voc_init(sp, voc)
+    tract = voc.tract_diameters
+    tract_size = voc.tract_size
+    freq = voc.frequency
+    velum = voc.velum
+    tenseness = voc.tenseness
+
+    freq = 160
+    gain = 1
+    mode = Mode.VOC_NONE
+
+
+def main():
+    pass
