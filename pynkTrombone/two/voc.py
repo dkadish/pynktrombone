@@ -450,9 +450,7 @@ def append_transient(pool: transient_pool, position: int) -> transient_pool:
 
     if free_id == -1: return pool
 
-    t = transient()
-    pool.pool[free_id] = t
-    # t = &pool.pool[free_id]
+    t = pool.pool[free_id]
     t.next = pool.root
     pool.root = t
     pool.size += 1
