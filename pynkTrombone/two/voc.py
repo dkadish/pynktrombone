@@ -32,14 +32,12 @@ def sp_rand(sp: sp_data) -> int:
 
 class glottis:
 
-    def __init__(self):
-        self.freq: float
-
-        self.freq: float
-        self.tenseness: float
+    def __init__(self, sr: float):
+        self.freq: float = 140  # 140Hz frequency by default
+        self.tenseness: float = 0.6 # value between 0 and 1
         self.Rd: float
         self.waveform_length: float
-        self.time_in_waveform: float
+        self.time_in_waveform: float = 0
         self.alpha: float
         self.E0: float
         self.epsilon: float
@@ -47,87 +45,130 @@ class glottis:
         self.delta: float
         self.Te: float
         self.omega: float
-        self.T: float
+        self.T: float = 1.0 / sr  # big T
+
+        self = glottis_setup_waveform(self, 0)
+
+    # static void glottis_init(glottis *glot, SPFLOAT sr)
+    # CHANGE: glot is not a pointer, is returned from fn
+    # def glottis_init(glot: glottis, sr: float) -> glottis:
 
 
 class transient:
-    def __init__(self):
-        self.position: int
-        self.time_alive: float
+    def __init__(self, i: int):
+        self.position: int = 0
+        self.time_alive: float = 0
         self.lifetime: float
-        self.strength: float
-        self.exponent: float
-        self.is_free: str
-        self.id: int
+        self.strength: float = 0
+        self.exponent: float = 0
+        self.is_free: str = 1
+        self.id: int = i
         self.next: transient  # PTR
 
 
 class transient_pool:
     def __init__(self):
-        self.pool: List[transient]  # Should be limited to MAX_TRANSIENTS
+        self.pool: List[transient] = [] # Should be limited to MAX_TRANSIENTS
         self.root: transient  # PTR
-        self.size: int
-        self.next_free: int
+        self.size: int = 0
+        self.next_free: int = 0
+
+        for i in range(MAX_TRANSIENTS):
+            self.pool.append(transient(i))
 
 
 class tract:
-    def __init__(self):
-        self.n: int
+    def __init__(self, sr: float):
+        self.n: int = 44
 
-        self.diameter: List[float]  # len = 44
-        self.rest_diameter: List[float]  # len = 44
-        self.target_diameter: List[float]  # len = 44
-        self.new_diameter: List[float]  # len = 44
-        self.R: List[float]  # len = 44
-        self.L: List[float]  # len = 44
-        self.reflection: List[float]  # len = 44
-        self.new_reflection: List[float]  # len = 44
-        self.junction_outL: List[float]  # len = 44
-        self.junction_outR: List[float]  # len = 44
-        self.A: List[float]  # len = 44
+        self.diameter: List[float] = zeros(self.n)  # len = 44
+        self.rest_diameter: List[float]  = zeros(self.n) # len = 44
+        self.target_diameter: List[float] = zeros(self.n)  # len = 44
+        self.new_diameter: List[float] = zeros(self.n)  # len = 44
+        self.R: List[float] = zeros(self.n)  # len = 44
+        self.L: List[float] = zeros(self.n)  # len = 44
+        self.reflection: List[float] = zeros(self.n + 1)  # len = 44
+        self.new_reflection: List[float] = zeros(self.n + 1)  # len = 44
+        self.junction_outL: List[float] = zeros(self.n + 1)  # len = 44
+        self.junction_outR: List[float] = zeros(self.n + 1)  # len = 44
+        self.A: List[float] = zeros(self.n)  # len = 44
 
-        self.nose_length: int
+        self.nose_length: int = 28
 
-        self.nose_start: int
+        self.nose_start: int = 17
 
-        self.tip_start: int
-        self.noseL: List[float]  # len = 28
-        self.noseR: List[float]  # len = 28
-        self.nose_junc_outL: List[float]  # len = 29
-        self.nose_junc_outR: List[float]  # len = 29
+        self.tip_start: int = 32
+        self.noseL: List[float] = zeros(self.nose_length)  # len = 28
+        self.noseR: List[float] = zeros(self.nose_length)  # len = 28
+        self.nose_junc_outL: List[float] = zeros(self.nose_length + 1)  # len = 29
+        self.nose_junc_outR: List[float] = zeros(self.nose_length + 1)  # len = 29
         self.nose_reflection: List[float]  # len = 29
-        self.nose_diameter: List[float]  # len = 28
-        self.noseA: List[float]  # len = 28
+        self.nose_diameter: List[float] = zeros(self.nose_length)  # len = 28
+        self.noseA: List[float] = zeros(self.nose_length)  # len = 28
 
-        self.reflection_left: float
-        self.reflection_right: float
-        self.reflection_nose: float
+        self.reflection_left: float = 0.0
+        self.reflection_right: float = 0.0
+        self.reflection_nose: float = 0.0
 
-        self.new_reflection_left: float
-        self.new_reflection_right: float
-        self.new_reflection_nose: float
+        self.new_reflection_left: float = 0.0
+        self.new_reflection_right: float = 0.0
+        self.new_reflection_nose: float = 0.0
 
-        self.velum_target: float
+        self.velum_target: float = 0.01
 
-        self.glottal_reflection: float
-        self.lip_reflection: float
-        self.last_obstruction: int
+        self.glottal_reflection: float = 0.75
+        self.lip_reflection: float = -0.85
+        self.last_obstruction: int = -1
         self.fade: float
-        self.movement_speed: float
-        self.lip_output: float
-        self.nose_output: float
-        self.block_time: float
+        self.movement_speed: float = 15
+        self.lip_output: float = 0
+        self.nose_output: float = 0
+        self.block_time: float = 512.0 / sr
 
-        self.tpool: transient_pool
-        self.T: float
+        self.tpool: transient_pool = transient_pool()
+        self.T: float = 1.0 / sr
 
+        #TODO Pythonify
+        for i in range(self.n):
+            diameter = 0
+            if i < 7 * float(self.n) / 44 - 0.5:
+                diameter = 0.6
+            elif i < 12 * float(self.n) / 44:
+                diameter = 1.1
+            else:
+                diameter = 1.5
+
+            self.diameter[i] = self.rest_diameter[i] = self.target_diameter[i] = self.new_diameter[i] = diameter
+
+        #TODO Pythonify
+        for i in range(self.nose_length):
+            d = 2 * (float(i) / self.nose_length)
+            if d < 1:
+                diameter = 0.4 + 1.6 * d
+            else:
+                diameter = 0.5 + 1.5 * (2 - d)
+
+            diameter = min(diameter, 1.9)
+            self.nose_diameter[i] = diameter
+
+        #TODO Pythonify. This *SHOULD* work right now, but it's dumb
+        self = tract_calculate_reflections(self)
+        self = tract_calculate_nose_reflections(self)
+        self.nose_diameter[0] = self.velum_target
+
+    # static void tract_init(sp_data *sp, tract *tr)
+    # CHANGE: sp is not a pointer, is returned from fn. | sp is not changed. no longer returned.
+    # CHANGE: tr is not a pointer, is returned from fn
+    # def tract_init(tr: tract, sr: float) -> tract:
 
 class sp_voc:
-    def __init__(self):
-        self.glot: glottis  # The Glottis
-        self.tr: tract  # The Vocal Tract
+    # int sp_voc_init(sp_data *sp, sp_voc *voc)
+    def __init__(self, sp: sp_data):
+        self.glot: glottis = glottis()
+        self.glot = glottis_init(self.glot, sp.sr)  # /* initialize glottis */
+        self.tr: tract = tract(sp.sr)
         self.buf: List[float]  # len = 512
-        self._counter: int
+        self._counter: int = 0
 
     @property
     def frequency(self) -> float:
@@ -309,16 +350,6 @@ def glottis_setup_waveform(glot: glottis, lmbd: float) -> glottis:
     glot.omega = omega
 
     return glot
-
-
-# static void glottis_init(glottis *glot, SPFLOAT sr)
-# CHANGE: glot is not a pointer, is returned from fn
-def glottis_init(glot: glottis, sr: float) -> glottis:
-    glot.freq = 140  # 140Hz frequency by default
-    glot.tenseness = 0.6  # value between 0 and 1
-    glot.T = 1.0 / sr  # big T
-    glot.time_in_waveform = 0
-    return glottis_setup_waveform(glot, 0)
 
 
 # static SPFLOAT glottis_compute(sp_data *sp, glottis *glot, SPFLOAT lmbd)
@@ -513,92 +544,6 @@ def zeros(n):
     return [0.0 for _ in range(n)]
 
 
-# static void tract_init(sp_data *sp, tract *tr)
-# CHANGE: sp is not a pointer, is returned from fn
-# CHANGE: tr is not a pointer, is returned from fn
-def tract_init(sp: sp_data, tr: tract) -> Tuple[sp_data, tract]:
-    i: int
-    diameter: float
-    d: float  # /* needed to set up diameter arrays */
-
-    tr.n = 44
-    tr.nose_length = 28
-    tr.nose_start = 17
-
-    tr.reflection_left = 0.0
-    tr.reflection_right = 0.0
-    tr.reflection_nose = 0.0
-    tr.new_reflection_left = 0.0
-    tr.new_reflection_right = 0.0
-    tr.new_reflection_nose = 0.0
-    tr.velum_target = 0.01
-    tr.glottal_reflection = 0.75
-    tr.lip_reflection = -0.85
-    tr.last_obstruction = -1
-    tr.movement_speed = 15
-    tr.lip_output = 0
-    tr.nose_output = 0
-    tr.tip_start = 32
-
-    tr.diameter = zeros(tr.n)
-    tr.rest_diameter = zeros(tr.n)
-    tr.target_diameter = zeros(tr.n)
-    tr.new_diameter = zeros(tr.n)
-    tr.L = zeros(tr.n)
-    tr.R = zeros(tr.n)
-    tr.reflection = zeros((tr.n + 1))
-    tr.new_reflection = zeros((tr.n + 1))
-    tr.junction_outL = zeros((tr.n + 1))
-    tr.junction_outR = zeros((tr.n + 1))
-    tr.A = zeros(tr.n)
-    tr.noseL = zeros(tr.nose_length)
-    tr.noseR = zeros(tr.nose_length)
-    tr.nose_junc_outL = zeros((tr.nose_length + 1))
-    tr.nose_junc_outR = zeros((tr.nose_length + 1))
-    tr.nose_diameter = zeros(tr.nose_length)
-    tr.noseA = zeros(tr.nose_length)
-
-    for i in range(tr.n):
-        diameter = 0
-        if i < 7 * float(tr.n) / 44 - 0.5:
-            diameter = 0.6
-        elif i < 12 * float(tr.n) / 44:
-            diameter = 1.1
-        else:
-            diameter = 1.5
-
-        tr.diameter[i] = tr.rest_diameter[i] = tr.target_diameter[i] = tr.new_diameter[i] = diameter
-
-    for i in range(tr.nose_length):
-        d = 2 * (float(i) / tr.nose_length)
-        if d < 1:
-            diameter = 0.4 + 1.6 * d
-        else:
-            diameter = 0.5 + 1.5 * (2 - d)
-
-        diameter = min(diameter, 1.9)
-        tr.nose_diameter[i] = diameter
-
-    tract_calculate_reflections(tr)
-    tract_calculate_nose_reflections(tr)
-    tr.nose_diameter[0] = tr.velum_target
-
-    tr.block_time = 512.0 / float(sp.sr)
-    tr.T = 1.0 / float(sp.sr)
-
-    tr.tpool.size = 0
-    tr.tpool.next_free = 0
-    for i in range(MAX_TRANSIENTS):
-        tr.tpool.pool[i].is_free = 1
-        tr.tpool.pool[i].id = i
-        tr.tpool.pool[i].position = 0
-        tr.tpool.pool[i].time_alive = 0
-        tr.tpool.pool[i].strength = 0
-        tr.tpool.pool[i].exponent = 0
-
-    return sp, tract
-
-
 # static void tract_compute(sp_data *sp, tract *tr,
 #     SPFLOAT  in,
 #     SPFLOAT  lmbd)
@@ -660,14 +605,6 @@ def tract_compute(sp: sp_data, tr: tract, _in: float, lmbd: float) -> Tuple[sp_d
     tr.nose_output = tr.noseR[tr.nose_length - 1]
 
     return sp, tr
-
-
-# int sp_voc_init(sp_data *sp, sp_voc *voc)
-def sp_voc_init(sp: sp_data, voc: sp_voc) -> Tuple[sp_data, sp_voc]:
-    voc.glot = glottis_init(voc.glot, sp.sr)  # /* initialize glottis */
-    voc.tr = tract_init(sp, voc.tr)  # /* initialize vocal tract */
-    voc.counter = 0
-    return sp, voc
 
 
 # int sp_voc_compute(sp_data *sp, sp_voc *voc, SPFLOAT *out)
@@ -845,8 +782,7 @@ def setup():
     # audio.showWarnings( true )
 
     sp = sp_data()
-    voc = sp_voc()
-    sp, voc = sp_voc_init(sp, voc)
+    voc = sp_voc(sp)
     tract = voc.tract_diameters
     tract_size = voc.tract_size
     freq = voc.frequency
