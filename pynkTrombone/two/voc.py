@@ -1,11 +1,12 @@
+import random as rnd
 from enum import Enum
-
 from itertools import count
 from math import exp, sin, log, sqrt, cos
-from typing import List, Tuple
-
-import random as rnd
 from random import random
+from typing import List
+
+import numpy as np
+
 rnd.seed(a=42)
 
 M_PI = 3.14159265358979323846
@@ -13,17 +14,6 @@ M_PI = 3.14159265358979323846
 EPSILON = 1.0e-38
 
 MAX_TRANSIENTS = 4
-
-
-class sp_data:
-    def __init__(self):
-        self.out: float = 0.0
-        self.sr: int = 44100
-        self.nchan: int = 1
-        self.len: int = 5 * self.sr
-        self.pos: int = 0
-        self.filename: str = 'test.wav'
-        self.rand: int = 0
 
 
 class Glottis:
@@ -120,22 +110,18 @@ class Glottis:
     # static SPFLOAT glottis_compute(sp_data *sp, Glottis *self, SPFLOAT lmbd)
     # CHANGE: sp is not a pointer, is returned from fn
     # CHANGE: self is not a pointer, is returned from fn
-    def compute(self, sp: sp_data, lmbd: float) -> Tuple[sp_data, float]:
-        out: float = 0.0
-        aspiration: float
-        noise: float
-        t: float
+    def compute(self, lmbd: float) -> float:
         intensity: float = 1.0
 
         self.time_in_waveform += self.T
 
-        if (self.time_in_waveform > self.waveform_length):
+        if self.time_in_waveform > self.waveform_length:
             self.time_in_waveform -= self.waveform_length
             self.setup_waveform(lmbd)
 
         t = (self.time_in_waveform / self.waveform_length)
 
-        if (t > self.Te):
+        if t > self.Te:
             out = (-exp(-self.epsilon * (t - self.Te)) + self.shift) / self.delta
         else:
             out = self.E0 * exp(self.alpha * t) * sin(self.omega * t)
@@ -148,7 +134,7 @@ class Glottis:
 
         out += aspiration
 
-        return sp, out
+        return out
 
 
 class Transient:
@@ -180,7 +166,6 @@ class TransientPool:
 
         for i in range(MAX_TRANSIENTS):
             self.pool.append(Transient())
-
 
     # static int append_transient(TransientPool *self, int position)
     # CHANGE: self is not a pointer, is returned from fn
@@ -364,16 +349,7 @@ class Tract:
     # static void tract_compute(sp_data *sp, Tract *self,
     #     SPFLOAT  in,
     #     SPFLOAT  lmbd)
-    def compute(self, sp: sp_data, _in: float, lmbd: float) -> Tuple[sp_data]:
-        r: float
-        w: float
-        i: int
-        amp: float
-        current_size: int
-        # TransientPool *self
-        # Transient *n
-        pool: TransientPool
-        n: Transient
+    def compute(self, _in: float, lmbd: float) -> None:
 
         pool = self.tpool  # Python treats this as a reference, so this should be fine.
         current_size = pool.size
@@ -387,14 +363,12 @@ class Tract:
                 pool.remove(n.id)
             n = n.next
 
+        #TODO: junction_outR[0] doesn't get used until _calculate_lip_output. And it is the only place that _in is used.
+        #       Perhaps, it could be moved to later and then the first part of the calculation could be parallelized...
         self.junction_outR[0] = self.L[0] * self.glottal_reflection + _in
         self.junction_outL[self.n] = self.R[self.n - 1] * self.lip_reflection
 
-        for i in range(1, self.n):
-            r = self.reflection[i] * (1 - lmbd) + self.new_reflection[i] * lmbd
-            w = r * (self.R[i - 1] + self.L[i])
-            self.junction_outR[i] = self.R[i - 1] - w
-            self.junction_outL[i] = self.L[i] + w
+        self._calculate_junctions(lmbd)
 
         i = self.nose_start
         r = self.new_reflection_left * (1 - lmbd) + self.reflection_left * lmbd
@@ -404,24 +378,90 @@ class Tract:
         r = self.new_reflection_nose * (1 - lmbd) + self.reflection_nose * lmbd
         self.nose_junc_outR[0] = r * self.noseL[0] + (1 + r) * (self.L[i] + self.R[i - 1])
 
-        for i in range(self.n):
-            self.R[i] = self.junction_outR[i] * 0.999
-            self.L[i] = self.junction_outL[i + 1] * 0.999
-        self.lip_output = self.R[self.n - 1]
+        self._calculate_lip_output()
 
         self.nose_junc_outL[self.nose_length] = self.noseR[self.nose_length - 1] * self.lip_reflection
 
-        for i in range(1, self.nose_length):
-            w = self.nose_reflection[i] * (self.noseR[i - 1] + self.noseL[i])
-            self.nose_junc_outR[i] = self.noseR[i - 1] - w
-            self.nose_junc_outL[i] = self.noseL[i] + w
+        self._calculate_nose_junc_out()
 
-        for i in range(self.nose_length):
-            self.noseR[i] = self.nose_junc_outR[i]
-            self.noseL[i] = self.nose_junc_outL[i + 1]
+        self._calculate_nose()
         self.nose_output = self.noseR[self.nose_length - 1]
 
-        return sp
+    def _calculate_nose(self):
+        n = self.nose_length
+
+        # nr = zeros(n)
+        # nl = zeros(n)
+        # for i in range(self.nose_length):
+        #     nr[i] = self.nose_junc_outR[i]
+        #     nl[i] = self.nose_junc_outL[i + 1]
+
+        nr_n = self.nose_junc_outR[:n]
+        nl_n = self.nose_junc_outL[1:n + 1]
+
+        # np.testing.assert_equal(nr, nr_n)
+        # np.testing.assert_equal(nl, nl_n)
+
+        self.noseR[:n] = nr_n
+        self.noseL[:n] = nl_n
+
+    def _calculate_nose_junc_out(self):
+        n = self.nose_length
+        
+        # njoR = zeros(n-1)
+        # njoL = zeros(n-1)
+        # for i in range(1, self.nose_length):
+        #     w = self.nose_reflection[i] * (self.noseR[i - 1] + self.noseL[i])
+        #     njoR[i-1] = self.noseR[i - 1] - w
+        #     njoL[i-1] = self.noseL[i] + w
+
+        w_n = self.nose_reflection[1:n] * (self.noseR[:n - 1] + self.noseL[1:n])
+        njoR_n = self.noseR[:n - 1] - w_n
+        njoL_n = self.noseL[1:n] + w_n
+
+        # np.testing.assert_equal(njoR, njoR_n)
+        # np.testing.assert_equal(njoL, njoL_n)
+
+        self.nose_junc_outR[1:n] = njoR_n
+        self.nose_junc_outL[1:n] = njoL_n
+
+    def _calculate_lip_output(self):
+        # r = zeros(self.n)
+        # l = zeros(self.n)
+        # for i in range(self.n):
+        #     r[i] = self.junction_outR[i] * 0.999
+        #     l[i] = self.junction_outL[i + 1] * 0.999
+
+        r_n = self.junction_outR[:self.n] * 0.999
+        l_n = self.junction_outL[1:self.n + 1] * 0.999
+
+        # np.testing.assert_equal(r, r_n)
+        # np.testing.assert_equal(l, l_n)
+
+        self.R[:self.n] = r_n
+        self.L[:self.n] = l_n
+        self.lip_output = self.R[self.n - 1]
+
+    def _calculate_junctions(self, lmbd):
+
+        # j_outR = zeros(self.n - 1)
+        # j_outL = zeros(self.n - 1)
+        # for i in range(1, self.n):
+        #     r = self.reflection[i] * (1 - lmbd) + self.new_reflection[i] * lmbd
+        #     w = r * (self.R[i - 1] + self.L[i])
+        #     j_outR[i - 1] = self.R[i - 1] - w
+        #     j_outL[i - 1] = self.L[i] + w
+
+        r = self.reflection[1:self.n] * (1 - lmbd) + self.new_reflection[1:self.n] * lmbd
+        w = r * (self.R[:self.n - 1] + self.L[1:self.n])
+        j_outR_n = self.R[:self.n - 1] - w
+        j_outL_n = self.L[1:self.n] + w
+
+        # np.testing.assert_equal(j_outR, j_outR_n)
+        # np.testing.assert_equal(j_outL, j_outL_n)
+
+        self.junction_outR[1:self.n] = j_outR_n
+        self.junction_outL[1:self.n] = j_outL_n
 
     # static void tract_reshape(Tract *self)
     # CHANGE: self is not a pointer, is returned from fn
@@ -457,9 +497,9 @@ class Tract:
 
 class Voc:
     # int sp_voc_init(sp_data *sp, Voc *self)
-    def __init__(self, sp: sp_data):
-        self.glot: Glottis = Glottis(sp.sr)
-        self.tr: Tract = Tract(sp.sr)
+    def __init__(self, sr: float = 44100):
+        self.glot: Glottis = Glottis(sr)
+        self.tr: Tract = Tract(sr)
         self.buf: List[float] = zeros(512)  # len = 512
         self._counter: int = 0
 
@@ -578,30 +618,30 @@ class Voc:
     # }
 
     # int sp_voc_compute(sp_data *sp, Voc *self, SPFLOAT *out)
-    def compute(self, sp: sp_data, out: float) -> Tuple[sp_data, float]:
+    def compute(self, out: float) -> float:
 
         if self.counter == 0:
             self.tr.reshape()
             self.tr.calculate_reflections()
             for i in range(512):
                 vocal_output = 0
-                lmbd1 = float(i) / 512
-                lmbd2 = float(i + 0.5) / 512
-                sp, glot = self.glot.compute(sp, lmbd1)
+                lmbd1 = float(i) / 512.0
+                lmbd2 = float(i + 0.5) / 512.0
+                glot = self.glot.compute(lmbd1)
                 # sp, self.self, self = glottis_compute(sp, self.self, lmbd1)
 
-                sp = self.tr.compute(sp, glot, lmbd1)
+                self.tr.compute(glot, lmbd1)
                 # sp, self.self = tract_compute(sp, self.self, glot, lmbd1)
                 vocal_output += self.tr.lip_output + self.tr.nose_output
 
-                sp = self.tr.compute(sp, glot, lmbd2)
+                self.tr.compute(glot, lmbd2)
                 # sp, self.self = tract_compute(sp, self.self, glot, lmbd2)
                 vocal_output += self.tr.lip_output + self.tr.nose_output
                 self.buf[i] = vocal_output * 0.125
 
         out = self.buf[self.counter]
         self.counter = (self.counter + 1) % 512
-        return sp, out
+        return out
 
     # void sp_voc_set_diameters(Voc *self,
     #     int blade_start,
@@ -645,6 +685,7 @@ class Voc:
         #                                       tongue_index, tongue_diameter, diameters)
         self.set_diameters(10, 39, 32, tongue_index, tongue_diameter)
 
+
 # static SPFLOAT move_towards(SPFLOAT current, SPFLOAT target,
 #         SPFLOAT amt_up, SPFLOAT amt_down)
 def move_towards(current: float, target: float, amt_up: float, amt_down: float) -> float:
@@ -661,7 +702,9 @@ def move_towards(current: float, target: float, amt_up: float, amt_down: float) 
 
 
 def zeros(n):
-    return [0.0 for _ in range(n)]
+    # return [0.0 for _ in range(n)]
+    return np.zeros(shape=(n,))
+
 
 class Mode(Enum):
     VOC_NONE = 0
@@ -670,8 +713,8 @@ class Mode(Enum):
 
 class voc_demo_d():
     def __init__(self):
-        self.sp: sp_data = sp_data()  # Former pointer
-        self.voc: Voc = Voc(self.sp)  # Former pointer
+        self.sr: float = 44100
+        self.voc: Voc = Voc(self.sr)  # Former pointer
         self.tract: float = self.voc.tract_diameters  # Former pointer
         self.freq: float = self.voc.frequency  # Former pointer
         self.velum: float = self.voc.velum  # Former pointer
