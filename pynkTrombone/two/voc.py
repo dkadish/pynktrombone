@@ -140,7 +140,7 @@ class Voc:
     # }
 
     # int sp_voc_compute(sp_data *sp, Voc *self, SPFLOAT *out)
-    def compute(self, out: float) -> float:
+    def compute(self) -> float:
 
         if self.counter == 0:
             self.tract.reshape()
@@ -214,10 +214,10 @@ class Voc:
         self.glottis.enable = False
 
     def set_glottis_parameters(self, enable=True, frequency=140):
-        if enable:
-            self.glottis_enable()
-        else:
-            self.glottis_disable()
+        # if enable:
+        #     self.glottis_enable()
+        # else:
+        #     self.glottis_disable()
 
         self.glottis.freq = frequency
 
@@ -227,6 +227,17 @@ class Voc:
         self.velum = velum
         self.tongue_shape(tongue_index, tongue_diameter)
         self.tract.lips = lips
+
+    def play_chunk(self) -> np.ndarray:
+        """Play until the next control time.
+
+        :return:
+        """
+        out = [self.compute()]
+        while self.counter != 0:
+            out.append(self.compute())
+
+        return np.array(out)
 
 # static SPFLOAT move_towards(SPFLOAT current, SPFLOAT target,
 #         SPFLOAT amt_up, SPFLOAT amt_down)

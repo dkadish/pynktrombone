@@ -275,3 +275,47 @@ class Tract:
         self.nose_diameter[0] = voc.move_towards(self.nose_diameter[0], self.velum_target,
                                                  amount * 0.25, amount * 0.1)
         self.noseA[0] = self.nose_diameter[0] * self.nose_diameter[0]
+
+    @property
+    def lip_start(self):
+        return 39
+
+    @property
+    def blade_start(self):
+        '''The end of the epiglottis and the beginning of the tongue
+
+        :return:
+        '''
+        return 12  # 10
+
+    @property
+    def epiglottis_start(self):
+        '''The end of the trachea and the beginning of the epiglottis
+
+        :return:
+        '''
+        return 6
+
+    @property
+    def lips(self):
+        return np.average(self.target_diameter[self.lip_start:])
+
+    @lips.setter
+    def lips(self, d):
+        self.target_diameter[self.lip_start:] = d
+
+    @property
+    def epiglottis(self):
+        return np.average(self.target_diameter[self.epiglottis_start:self.blade_start])
+
+    @epiglottis.setter
+    def epiglottis(self, d):
+        self.target_diameter[self.epiglottis_start:self.blade_start] = d
+
+    @property
+    def trachea(self):
+        return np.average(self.target_diameter[:self.epiglottis_start])
+
+    @trachea.setter
+    def trachea(self, d):
+        self.target_diameter[:self.epiglottis_start] = d
