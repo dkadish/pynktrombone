@@ -1,151 +1,211 @@
+import random as rnd
+from enum import Enum
+from math import cos
 from typing import List
 
 import numpy as np
 
 from pynkTrombone.glottis import Glottis
-from pynkTrombone.tools import sp_data
 from pynkTrombone.tract import Tract
 
-CHUNK = 512
+rnd.seed(a=42)
+
+M_PI = 3.14159265358979323846
+
+EPSILON = 1.0e-38
+
+MAX_TRANSIENTS = 4
+
 
 class Voc:
-
-    def __init__(self, sr: float):
-        self.glottis = Glottis(sr)  # FIXME rename to self.glottis
-        self.tract = Tract(sr)  # FIXME rename to self.tract
-        self._counter = 0
-
-    def compute(self, randomize: bool = True) -> List[float]:  # C Version returns an int and sets a referenced float *out. This returns *out instead.
-        #TODO What if I just compute the next and store in a buffer?
-        self.glottis.update(self.tract.block_time)
-        self.tract.reshape()
-        self.tract.calculate_reflections()
-        buf = self._compute(randomize)
-
-        return buf
-
-    def _compute(self, randomize):
-        self.tract.reshape()
-        self.tract.calculate_reflections()
-
-        vocal_output = np.zeros(shape=(CHUNK,), dtype=np.float32)
-        lambda1 = np.arange(CHUNK, dtype=np.float32) / float(CHUNK)
-        lambda2 = (np.arange(CHUNK, dtype=np.float32) + 0.5) / float(CHUNK)
-
-        for i in range(CHUNK):
-            glot = self.glottis.compute(randomize)
-            self.tract.compute(glot, lambda1[i])
-            vocal_output[i] += self.tract.lip_output + self.tract.nose_output
-
-            self.tract.compute(glot, lambda2[i])
-            vocal_output[i] += self.tract.lip_output + self.tract.nose_output
-
-        return vocal_output * 0.125
-
-    def tract_compute(self, sp: sp_data, zin) -> float:
-        if self._counter == 0:
-            self.tract.reshape()
-            self.tract.calculate_reflections()
-
-        vocal_output = 0
-        lambda1 = self._counter / float(CHUNK)
-        lambda2 = (self._counter + 0.5) / float(CHUNK)
-
-        self.tract.compute(zin, lambda1)
-        vocal_output += self.tract.lip_output + self.tract.nose_output
-        self.tract.compute(zin, lambda2)
-        vocal_output += self.tract.lip_output + self.tract.nose_output
-
-        out = vocal_output * 0.125
-        self._counter = (self._counter + 1) % CHUNK
-        return out
-
-    # Unnecessary in Python
-    def create(self):
-        pass
-
-    # Unnecessary in Python
-    def destroy(self):
-        pass
-
-    # Getters
-    @property
-    def counter(self):
-        return self._counter
+    # int sp_voc_init(sp_data *sp, Voc *self)
+    def __init__(self, sr: float = 44100):
+        self.glottis: Glottis = Glottis(sr)
+        self.tract: Tract = Tract(sr)
+        self.buf: np.ndarray = zeros(512)  # len = 512
+        self._counter: int = 0
 
     @property
-    def current_tract_diameters(self):
-        return self.tract._diameter
-
-    @property
-    def frequency(self):
+    def frequency(self) -> float:
         return self.glottis.freq
 
-    @property
-    def nose_diameters(self):
-        return self.tract.nose_diameter
+    @frequency.setter
+    def frequency(self, f: float):
+        self.glottis.freq = f
+
+    # void sp_voc_set_frequency(Voc *self, SPFLOAT freq)
+    # {
+    #     self->self.freq = freq
+    # }
+    #
+    #
+    # SPFLOAT * sp_voc_get_frequency_ptr(Voc *self)
+    # {
+    #     return &self->self.freq
+    # }
 
     @property
-    def nose_size(self):
-        return self.tract.nose_length
+    def tract_diameters(self) -> np.ndarray:
+        return self.tract.target_diameter
+
+    # SPFLOAT* sp_voc_get_tract_diameters(Voc *self)
+    # {
+    #     return self->self.target_diameter
+    # }
 
     @property
-    def tenseness(self):
-        return self.glottis.tenseness
+    def current_tract_diameters(self) -> np.ndarray:
+        return self.tract.diameter
+
+    # SPFLOAT* sp_voc_get_current_tract_diameters(Voc *self)
+    # {
+    #     return self->self.diameter
+    # }
 
     @property
-    def tract_diameters(self):
-        return self.tract._target_diameter
-
-    @property
-    def tract_size(self):
+    def tract_size(self) -> int:
         return self.tract.n
 
+    # int sp_voc_get_tract_size(Voc *self)
+    # {
+    #     return self->self.n
+    # }
+
     @property
-    def velum(self):
+    def nose_diameters(self) -> float:
+        return self.tract.nose_diameter
+
+    # SPFLOAT* sp_voc_get_nose_diameters(Voc *self)
+    # {
+    #     return self->self.nose_diameter
+    # }
+
+    @property
+    def nose_size(self) -> int:
+        return self.tract.nose_length
+
+    # int sp_voc_get_nose_size(Voc *self)
+    # {
+    #     return self->self.nose_length
+    # }
+
+    @property
+    def counter(self) -> int:
+        return self._counter
+
+    @counter.setter
+    def counter(self, i):
+        self._counter = i
+
+    # int sp_voc_get_counter(Voc *self)
+    # {
+    #     return self->counter
+    # }
+
+    @property
+    def tenseness(self) -> float:
+        return self.glottis.tenseness
+
+    @tenseness.setter
+    def tenseness(self, t: float):
+        self.glottis.tenseness = t
+
+    # SPFLOAT * sp_voc_get_tenseness_ptr(Voc *self)
+    # {
+    #     return &self->self.tenseness
+    # }
+
+    # void sp_voc_set_tenseness(Voc *self, SPFLOAT tenseness)
+    # {
+    #     self->self.tenseness = tenseness
+    # }
+
+    @property
+    def velum(self) -> float:
         return self.tract.velum_target
 
-    # Setters
-    #TODO Currently, trachea, epiglottis, lips are fixed. They don't have to be.
-    def diameters(self, blade_start: int,
-                  tip_start: int,
-                  tongue_index: float,
-                  tongue_diameter: float):
+    @velum.setter
+    def velum(self, t: float):
+        self.tract.velum_target = t
 
-        grid_offset = 1.7 #TODO: Possibly 0.0
-        fixed_tongue_diameter = 2 + (tongue_diameter - 2) / 1.5
-        tongue_amplitude = (1.5 - fixed_tongue_diameter + grid_offset)
+    # void sp_voc_set_velum(Voc *self, SPFLOAT velum)
+    # {
+    #     self->self.velum_target = velum
+    # }
+    #
+    #
+    # SPFLOAT *sp_voc_get_velum_ptr(Voc *self)
+    # {
+    #     return &self->self.velum_target
+    # }
 
-        # diameters = self.tract.target_diameter.copy()
-        diameters = self.tract.target_diameter.copy()
-        lip_start = self.tract.lip_start
+    # int sp_voc_compute(sp_data *sp, Voc *self, SPFLOAT *out)
+    def compute(self) -> float:
 
-        # for i in range(blade_start, lip_start):
-        #     t = 1.1 * math.pi * float(tongue_index - i) / float(tip_start - blade_start)
-        #     curve = tongue_amplitude * math.cos(t)
-        #     if i == lip_start - 1:
-        #         curve *= 0.8
-        #     if i == blade_start or i == lip_start - 2:
-        #         curve *= 0.94
-        #     diameters[i] = 1.5 - curve
+        if self.counter == 0:
+            self.tract.reshape()
+            self.tract.calculate_reflections()
+            for i in range(512):
+                vocal_output = 0
+                lmbd1 = float(i) / 512.0
+                lmbd2 = float(i + 0.5) / 512.0
+                glot = self.glottis.compute(lmbd1)
+                # sp, self.self, self = glottis_compute(sp, self.self, lmbd1)
 
-        # NP
-        t = 1.1 * np.pi * (tongue_index - np.arange(blade_start, lip_start)) / (tip_start - blade_start)
-        curve = tongue_amplitude * np.cos(t)
-        curve[lip_start - 1 - blade_start] *= 0.8
-        curve[[0, lip_start - 2 - blade_start]] *= 0.94
-        diameters[blade_start:lip_start] = 1.5 - curve
+                self.tract.compute(glot, lmbd1)
+                # sp, self.self = tract_compute(sp, self.self, glot, lmbd1)
+                vocal_output += self.tract.lip_output + self.tract.nose_output
 
-        # np.testing.assert_array_equal(diameters, diameters_np)
+                self.tract.compute(glot, lmbd2)
+                # sp, self.self = tract_compute(sp, self.self, glot, lmbd2)
+                vocal_output += self.tract.lip_output + self.tract.nose_output
+                self.buf[i] = vocal_output * 0.125
 
-        self.tract.target_diameter = diameters
+        out = self.buf[self.counter]
+        self.counter = (self.counter + 1) % 512
+        return out
 
+    # void sp_voc_set_diameters(Voc *self,
+    #     int blade_start,
+    #     int lip_start,
+    #     int tip_start,
+    #     SPFLOAT tongue_index,
+    #     SPFLOAT tongue_diameter,
+    #     SPFLOAT *diameters)
+    def set_diameters(self,
+                      blade_start: int,
+                      lip_start: int,
+                      tip_start: int,
+                      tongue_index: float,
+                      tongue_diameter: float) -> None:
+        # FIXME: NB Odd, self is not used here That appears to be the case in the original code...
 
-    @frequency.setter
-    def frequency(self, f):
-        if f < 100:
-            raise ValueError('Frequency must be above 100 Hz.')
-        self.glottis.freq = f
+        i: int
+        t: float
+        fixed_tongue_diameter: float
+        curve: float
+        grid_offset: int = 0
+
+        # for(i = blade_start i < lip_start i++) {
+        for i in range(blade_start, lip_start):
+            t = 1.1 * M_PI * float(tongue_index - i) / (tip_start - blade_start)
+            fixed_tongue_diameter = 2 + (tongue_diameter - 2) / 1.5
+            curve = (1.5 - fixed_tongue_diameter + grid_offset) * cos(t)
+            if i == blade_start - 2 or i == lip_start - 1: curve *= 0.8
+            if i == blade_start or i == lip_start - 2: curve *= 0.94
+            self.tract_diameters[i] = 1.5 - curve
+
+    # void sp_voc_set_tongue_shape(Voc *self,
+    #     SPFLOAT tongue_index,
+    #     SPFLOAT tongue_diameter)
+    def tongue_shape(self,
+                     tongue_index: float,
+                     tongue_diameter: float) -> None:
+        # diameters: List[float]
+        # diameters = self.tract_diameters
+        # self, diameters = sp_voc_set_diameters(self, 10, 39, 32,
+        #                                       tongue_index, tongue_diameter, diameters)
+        self.set_diameters(10, 39, 32, tongue_index, tongue_diameter)
 
     def glottis_enable(self):
         self.glottis.enable = True
@@ -153,38 +213,11 @@ class Voc:
     def glottis_disable(self):
         self.glottis.enable = False
 
-    @tenseness.setter
-    def tenseness(self, t):
-        '''
-
-        :param t: Must be in the range of [0,1]. Good values between [0.6, 0.9]
-        :return:
-        '''
-        self.glottis.tenseness = t
-
-    def tongue_shape(self, tongue_index: float, tongue_diameter: float) -> None:
-        '''
-
-        :param tongue_index: Where on the diameter index curve (VOC p25) the tongue is pointed. Should be on [blade_start,tip_start], which by default is [10, 32]
-        :param tongue_diameter: Should be between [2.0, 3.5].
-        :return: None
-        '''
-        self.diameters(10, 32, tongue_index, tongue_diameter)
-
-    @velum.setter
-    def velum(self, v):
-        '''
-
-        :param v: Defaults to 0.01. Nasally sounds at 0.04. Try between [0.0, 0.05]
-        :return:
-        '''
-        self.tract.velum_target = v
-
     def set_glottis_parameters(self, enable=True, frequency=140):
-        if enable:
-            self.glottis_enable()
-        else:
-            self.glottis_disable()
+        # if enable:
+        #     self.glottis_enable()
+        # else:
+        #     self.glottis_disable()
 
         self.glottis.freq = frequency
 
@@ -194,3 +227,53 @@ class Voc:
         self.velum = velum
         self.tongue_shape(tongue_index, tongue_diameter)
         self.tract.lips = lips
+
+    def play_chunk(self) -> np.ndarray:
+        """Play until the next control time.
+
+        :return:
+        """
+        out = [self.compute()]
+        while self.counter != 0:
+            out.append(self.compute())
+
+        return np.array(out)
+
+# static SPFLOAT move_towards(SPFLOAT current, SPFLOAT target,
+#         SPFLOAT amt_up, SPFLOAT amt_down)
+def move_towards(current: float, target: float, amt_up: float, amt_down: float) -> float:
+    tmp: float
+    if current < target:
+        tmp = current + amt_up
+        return min(tmp, target)
+
+    else:
+        tmp = current - amt_down
+        return max(tmp, target)
+
+    return 0.0
+
+
+def zeros(n):
+    # return [0.0 for _ in range(n)]
+    return np.zeros(shape=(n,))
+
+
+class Mode(Enum):
+    VOC_NONE = 0
+    VOC_TONGUE = 1
+
+
+class voc_demo_d():
+    def __init__(self):
+        self.sr: float = 44100
+        self.voc: Voc = Voc(self.sr)  # Former pointer
+        self.tract: float = self.voc.tract_diameters  # Former pointer
+        self.freq: float = self.voc.frequency  # Former pointer
+        self.velum: float = self.voc.velum  # Former pointer
+        self.tenseness: float = self.voc.tenseness  # Former pointer
+        self.tract_size: int = self.voc.tract_size
+        self.gain: float = 1
+        self.mode: int = Mode.VOC_NONE
+        self.tongue_pos: float
+        self.tongue_diam: float

@@ -1,121 +1,92 @@
-import math
+from math import exp, sin, log, sqrt
 from random import random
 
-import numpy as np
-
-from pynkTrombone.tools import move_towards
+from pynkTrombone import voc
 
 
 class Glottis:
+
     def __init__(self, sr: float):
-        self.enable = 1
-        self.freq = 140
-        self.tenseness = 0.6
-        self.intensity = 0
-        self.attack_time = 0.09
-        self.release_time = 0.23
-        self.time_in_waveform = 0
+        self.freq: float = 140  # 140Hz frequency by default
+        self.tenseness: float = 0.6  # value between 0 and 1
+        self.Rd: float
+        self.waveform_length: float
+        self.time_in_waveform: float = 0
+        self.alpha: float
+        self.E0: float
+        self.epsilon: float
+        self.shift: float
+        self.delta: float
+        self.Te: float
+        self.omega: float
+        self.T: float = 1.0 / sr  # big T
 
-        self.Rd = None
-        self.waveform_length = None
+        self.setup_waveform(0)
 
-        self.alpha = None
-        self.E0 = None
-        self.epsilon = None
-        self.shift = None
-        self.delta = None
-        self.Te = None
-        self.omega = None
+    # static void glottis_init(Glottis *self, SPFLOAT samplerate)
+    # CHANGE: self is not a pointer, is returned from fn
+    # def glottis_init(self: Glottis, samplerate: float) -> Glottis:
 
-        self.setup_waveform(0.0)
+    # static void glottis_setup_waveform(Glottis *self, SPFLOAT lmbd)
+    # CHANGE: self is not a pointer, is returned from fn
+    def setup_waveform(self, lmbd: float):
+        Rd: float
+        Ra: float
+        Rk: float
+        Rg: float
 
-        self.T = 1.0 / sr
+        Ta: float
+        Tp: float
+        Te: float
 
-    def setup_waveform(self, lmbda: float):
+        epsilon: float
+        shift: float
+        delta: float
+        rhs_integral: float
 
-        '''
-        SPFLOAT
-        Rd
-        SPFLOAT
-        Ra
-        SPFLOAT
-        Rk
-        SPFLOAT
-        Rg
+        lower_integral: float
+        upper_integral: float
 
-        SPFLOAT
-        Ta
-        SPFLOAT
-        Tp
-        SPFLOAT
-        Te
+        omega: float
+        s: float
+        y: float
+        z: float
 
-        SPFLOAT
-        epsilon
-        SPFLOAT
-        shift
-        SPFLOAT
-        delta
-        SPFLOAT
-        rhs_integral
+        alpha: float
+        E0: float
 
-        SPFLOAT
-        lower_integral
-        SPFLOAT
-        upper_integral
-
-        SPFLOAT
-        omega
-        SPFLOAT
-        s
-        SPFLOAT
-        y
-        SPFLOAT
-        z
-
-        SPFLOAT
-        alpha
-        SPFLOAT
-        E0
-        '''
-
-        # Derive waveform length and Rd
-        self.Rd = 3.0 * (1.0 - self.tenseness)
+        self.Rd = 3 * (1 - self.tenseness)
         self.waveform_length = 1.0 / self.freq
 
-        Rd = np.clip(self.Rd, 0.5, 2.7)
+        Rd = self.Rd
+        if (Rd < 0.5): Rd = 0.5
+        if (Rd > 2.7): Rd = 2.7
 
-        # 37. Ra, Rg, Rk
         Ra = -0.01 + 0.048 * Rd
         Rk = 0.224 + 0.118 * Rd
-        Rg = (Rk / 4.0) * (0.5 + 1.2 * Rk) / (0.11 * Rd - Ra * (0.5 + 1.2 * Rk))
+        Rg = (Rk / 4) * (0.5 + 1.2 * Rk) / (0.11 * Rd - Ra * (0.5 + 1.2 * Rk))
 
-        # 38. Ta, Tp, Te
         Ta = Ra
-        Tp = 1.0 / (2.0 * Rg)
+        Tp = float(1.0 / (2 * Rg))
         Te = Tp + Tp * Rk
 
-        # 39. Epsilon, shift, delta
-        epsilon = 1.0 / Ta
-        shift = math.exp(-epsilon * (1.0 - Te))
-        delta = 1.0 - shift
+        epsilon = float(1.0 / Ta)
+        shift = exp(-epsilon * (1 - Te))
+        delta = 1 - shift
 
-        # 40. Integrals
-        rhs_integral = (1.0 / epsilon) * (shift - 1.0) + (1.0 - Te) * shift
+        rhs_integral = float((1.0 / epsilon) * (shift - 1) + (1 - Te) * shift)
         rhs_integral = rhs_integral / delta
-        lower_integral = -(Te - Tp) / 2.0 + rhs_integral
+        lower_integral = - (Te - Tp) / 2 + rhs_integral
         upper_integral = -lower_integral
 
-        # 41. E0
-        omega = math.pi / Tp
-        s = math.sin(omega * Te)
+        omega = voc.M_PI / Tp
+        s = sin(omega * Te)
 
-        y = -math.pi * s * upper_integral / (Tp * 2.0)
-        z = math.log(y)
-        alpha = z / (Tp / 2.0 - Te)
-        E0 = -1.0 / (s * math.exp(alpha * Te))
+        y = -voc.M_PI * s * upper_integral / (Tp * 2)
+        z = log(y)
+        alpha = z / (Tp / 2 - Te)
+        E0 = -1 / (s * exp(alpha * Te))
 
-        # 42. Update Variables
         self.alpha = alpha
         self.E0 = E0
         self.epsilon = epsilon
@@ -124,52 +95,31 @@ class Glottis:
         self.Te = Te
         self.omega = omega
 
-    def update(self, block_time: float):
-        target_intensity = self.enable and 1 or 0
-        self.intensity = move_towards(self.intensity,
-                                      target_intensity,
-                                      block_time / self.attack_time,
-                                      block_time / self.release_time)
+    # static SPFLOAT glottis_compute(sp_data *sp, Glottis *self, SPFLOAT lmbd)
+    # CHANGE: sp is not a pointer, is returned from fn
+    # CHANGE: self is not a pointer, is returned from fn
+    def compute(self, lmbd: float) -> float:
+        intensity: float = 1.0
 
-    def compute(self, lmbda: float, randomize: bool = True) -> float:
-        out = 0.0
         self.time_in_waveform += self.T
 
         if self.time_in_waveform > self.waveform_length:
             self.time_in_waveform -= self.waveform_length
-            self.setup_waveform(lmbda)
+            self.setup_waveform(lmbd)
 
         t = (self.time_in_waveform / self.waveform_length)
 
         if t > self.Te:
-            out = (-math.exp(-self.epsilon * (t - self.Te)) + self.shift) / self.delta
+            out = (-exp(-self.epsilon * (t - self.Te)) + self.shift) / self.delta
         else:
-            out = self.E0 * math.exp(self.alpha * t) * math.sin(self.omega * t)
+            out = self.E0 * exp(self.alpha * t) * sin(self.omega * t)
 
-        voice_loudness = pow(self.tenseness, 0.25)
-        out *= voice_loudness
+        noise = 2.0 * random() - 1
 
-        if randomize:
-            # noise = 1.0 * random() - 0.5 #FIXME Test this...
-            noise = 2.0 * random() - 1.0 #FIXME Test this...
-        else:
-            # noise = 1.0 * 0.5 - 0.5
-            noise = 2.0 * 0.5 - 1.0
-        # ################################################################################################################
-        # # Corresponds to https://github.com/jamesstaub/pink-trombone-osc/blob/d700292127f31b73b44103c0e8dc4865a3cca651/src/audio/glottis.js#L192
-        # noise = 1.0 * ((SPFLOAT) sp_rand(sp) / SP_RANDMAX) - 0.5
-        #
-        # # this.getNoiseModulator() * noiseSource
-        # voiced = 0.1 + 0.2 * max([0.0, math.sin(math.pi * 2.0 * self.time_in_waveform / self.waveform_length)])
-        # noiseModulator = self.tenseness * self.intensity * voiced + (1 - self.tenseness * self.intensity) * 0.3
-        # ################################################################################################################
-
-        #JS: var aspiration = this.intensity * (1 - Math.sqrt( this.UITenseness)) * this.getNoiseModulator() * noiseSource
-        aspiration = (1.0 - math.sqrt(self.tenseness)) * 0.3 * noise
+        aspiration = intensity * (1 - sqrt(self.tenseness)) * 0.3 * noise
 
         aspiration *= 0.2
 
         out += aspiration
 
-        # return out * self.intensity
         return out
