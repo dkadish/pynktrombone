@@ -1,1 +1,2 @@
 # PynkTrombone
+このリポジトリはdkadishさんのPinkTromboneのPython実装を、より高速に、より安全に、使いやすくするために作りました。
