@@ -8,13 +8,13 @@ import numpy as np
 from pynkTrombone.glottis import Glottis
 from pynkTrombone.tract import Tract
 
-rnd.seed(a=42)
+rnd.seed(a=42) # SEED
 
-M_PI = 3.14159265358979323846
+M_PI = 3.14159265358979323846 # PI
 
-EPSILON = 1.0e-38
+EPSILON = 1.0e-38 # EPISILON
 
-MAX_TRANSIENTS = 4
+MAX_TRANSIENTS = 4 # MAX_TRANSIENTS
 
 
 class Voc:
@@ -22,7 +22,7 @@ class Voc:
     def __init__(self, sr: float = 44100):
         self.glottis: Glottis = Glottis(sr)
         self.tract: Tract = Tract(sr)
-        self.buf: np.ndarray = zeros(512)  # len = 512
+        self.buf: np.ndarray = zeros(512)  # len = 512 # CHUNK
         self._counter: int = 0
 
     @property
@@ -145,10 +145,10 @@ class Voc:
         if self.counter == 0:
             self.tract.reshape()
             self.tract.calculate_reflections()
-            for i in range(512):
+            for i in range(512): # CHUNK
                 vocal_output = 0
-                lmbd1 = float(i) / 512.0
-                lmbd2 = float(i + 0.5) / 512.0
+                lmbd1 = float(i) / 512.0 # CHUNK
+                lmbd2 = float(i + 0.5) / 512.0 # CHUNK
                 glot = self.glottis.compute(lmbd1)
                 # sp, self.self, self = glottis_compute(sp, self.self, lmbd1)
 
@@ -159,10 +159,10 @@ class Voc:
                 self.tract.compute(glot, lmbd2)
                 # sp, self.self = tract_compute(sp, self.self, glot, lmbd2)
                 vocal_output += self.tract.lip_output + self.tract.nose_output
-                self.buf[i] = vocal_output * 0.125
+                self.buf[i] = vocal_output * 0.125 # vocal_output scaler
 
         out = self.buf[self.counter]
-        self.counter = (self.counter + 1) % 512
+        self.counter = (self.counter + 1) % 512 # CHUNK
         return out
 
     # void sp_voc_set_diameters(Voc *self,
@@ -205,7 +205,7 @@ class Voc:
         # diameters = self.tract_diameters
         # self, diameters = sp_voc_set_diameters(self, 10, 39, 32,
         #                                       tongue_index, tongue_diameter, diameters)
-        self.set_diameters(10, 39, 32, tongue_index, tongue_diameter)
+        self.set_diameters(10, 39, 32, tongue_index, tongue_diameter) # BLADE_START, LIP_START, TIP_START
 
     def glottis_enable(self):
         self.glottis.enable = True

@@ -6,7 +6,7 @@ from .transient import TransientPool
 
 class Tract:
     def __init__(self, samplerate: float):
-        self.n: int = 44
+        self.n: int = 44 # n
 
         self.diameter: np.ndarray = voc.zeros(self.n)  # len = 44
         self.rest_diameter: np.ndarray = voc.zeros(self.n)  # len = 44
@@ -59,9 +59,9 @@ class Tract:
         # TODO Pythonify
         for i in range(self.n):
             diameter = 0
-            if i < 7 * float(self.n) / 44 - 0.5:
+            if i < 7 * float(self.n) / 44 - 0.5: # 44 is BASE_N
                 diameter = 0.6
-            elif i < 12 * float(self.n) / 44:
+            elif i < 12 * float(self.n) / 44: # 44 is BASE_N
                 diameter = 1.1
             else:
                 diameter = 1.5
