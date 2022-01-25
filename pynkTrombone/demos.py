@@ -4,7 +4,7 @@ from typing import Tuple, List
 import numpy as np
 import soundfile as sf
 
-from pynkTrombone.two.voc import voc_demo_d, Mode, Voc
+from pynkTrombone.voc import voc_demo_d, Mode, Voc
 
 
 # static int callme( void * outputBuffer, void * inputBuffer, unsigned int numFrames,
