@@ -146,6 +146,7 @@ class Tract:
 
         self.calculate_diameters()
         self.calculate_nose_diameter()
+        self.calculate_reflections()
     
     def calculate_diameters(self):
         # TODO Pythonify
@@ -172,3 +173,25 @@ class Tract:
             diameter = min(diameter, 1.9)
             self.nose_diameter[i] = diameter
 
+    def calculate_reflections(self):
+        # TODO refactor rename i
+        i: int
+        _sum: float
+
+        self.A[:] = self.diameter **2 # /* Calculate area from diameter squared*/
+
+        for i in range(1, self.n):
+            self.reflection[i] = self.new_reflection[i]
+            if self.A[i] == 0:
+                self.new_reflection[i] = 0.999  # /* to prevent bad behavior if 0 */
+            else:
+                self.new_reflection[i] = (self.A[i - 1] - self.A[i]) / (self.A[i - 1] + self.A[i])
+
+        self.reflection_left = self.new_reflection_left
+        self.reflection_right = self.new_reflection_right
+        self.reflection_nose = self.new_reflection_nose
+
+        _sum = self.A[self.nose_start] + self.A[self.nose_start + 1] + self.noseA[0]
+        self.new_reflection_left = float(2 * self.A[self.nose_start] - _sum) / _sum
+        self.new_reflection_right = float(2 * self.A[self.nose_start + 1] - _sum) / _sum
+        self.new_reflection_nose = float(2 * self.noseA[0] - _sum) / _sum
