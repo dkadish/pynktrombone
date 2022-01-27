@@ -315,3 +315,47 @@ class Tract:
 
         self.junction_outR[1:self.n] = j_outR_n
         self.junction_outL[1:self.n] = j_outL_n
+
+    @property
+    def lip_start(self):
+        return self.__lip_start
+
+    @property
+    def blade_start(self):
+        '''The end of the epiglottis and the beginning of the tongue
+
+        :return:
+        '''
+        return self.__blade_start
+
+    @property
+    def epiglottis_start(self):
+        '''The end of the trachea and the beginning of the epiglottis
+
+        :return:
+        '''
+        return self.__epiglottis_start
+
+    @property
+    def lips(self):
+        return np.mean(self.target_diameter[self.lip_start:])
+
+    @lips.setter
+    def lips(self, d):
+        self.target_diameter[self.lip_start:] = d
+
+    @property
+    def epiglottis(self):
+        return np.mean(self.target_diameter[self.epiglottis_start:self.blade_start])
+
+    @epiglottis.setter
+    def epiglottis(self, d):
+        self.target_diameter[self.epiglottis_start:self.blade_start] = d
+
+    @property
+    def trachea(self):
+        return np.mean(self.target_diameter[:self.epiglottis_start])
+
+    @trachea.setter
+    def trachea(self, d):
+        self.target_diameter[:self.epiglottis_start] = d
