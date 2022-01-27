@@ -147,7 +147,9 @@ class Tract:
         self.calculate_diameters()
         self.calculate_nose_diameter()
         self.calculate_reflections()
-    
+        self.calculate_nose_reflections()
+        self.nose_diameter[0] = self.velum_target
+        
     def calculate_diameters(self):
         # TODO Pythonify
         for i in range(self.n):
@@ -195,3 +197,10 @@ class Tract:
         self.new_reflection_left = float(2 * self.A[self.nose_start] - _sum) / _sum
         self.new_reflection_right = float(2 * self.A[self.nose_start + 1] - _sum) / _sum
         self.new_reflection_nose = float(2 * self.noseA[0] - _sum) / _sum
+
+    def calculate_nose_reflections(self):
+        for i in range(self.nose_length):
+            self.noseA[i] = self.nose_diameter[i] * self.nose_diameter[i]
+
+        for i in range(1, self.nose_length):
+            self.nose_reflection[i] = (self.noseA[i - 1] - self.noseA[i]) / (self.noseA[i - 1] + self.noseA[i])
