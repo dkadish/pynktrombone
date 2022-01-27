@@ -171,3 +171,4 @@ class Tract:
 
             diameter = min(diameter, 1.9)
             self.nose_diameter[i] = diameter
+
