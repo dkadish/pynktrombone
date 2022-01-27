@@ -18,7 +18,7 @@ def move_towards(current: float, target: float, amt_up: float, amt_down: float) 
         tmp = current - amt_down
         return max(tmp, target)
 
-@numba.jit()
+@numba.njit()
 def zeros(n: int) -> np.ndarray:
     return np.zeros((n,),dtype=np.float64)
 
