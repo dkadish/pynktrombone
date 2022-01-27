@@ -75,7 +75,6 @@ spec = [
     ("T",float64)
 ]
 
-
 @jitclass(spec)
 class Tract:
     """ Human tract model
@@ -149,7 +148,7 @@ class Tract:
         self.calculate_reflections()
         self.calculate_nose_reflections()
         self.nose_diameter[0] = self.velum_target
-        
+
     def calculate_diameters(self):
         # TODO Pythonify
         for i in range(self.n):
@@ -204,3 +203,115 @@ class Tract:
 
         for i in range(1, self.nose_length):
             self.nose_reflection[i] = (self.noseA[i - 1] - self.noseA[i]) / (self.noseA[i - 1] + self.noseA[i])
+
+    def compute(self, _in: float, lmbd: float) -> None:
+
+        pool = self.tpool
+        transients = pool.get_valid_transients()
+        for n in transients:
+            amp = n.strength * pow(2, -1.0 * n.exponent * n.time_alive)
+            self.L[n.position] += amp * 0.5
+            self.R[n.position] += amp * 0.5
+            n.time_alive += self.T * 0.5
+            if n.time_alive > n.lifetime:
+                pool.remove(n.id)
+
+        # TODO: junction_outR[0] doesn't get used until _calculate_lip_output. And it is the only place that _in is used.
+        #       Perhaps, it could be moved to later and then the first part of the calculation could be parallelized...
+        self.junction_outR[0] = self.L[0] * self.glottal_reflection + _in
+        self.junction_outL[self.n] = self.R[self.n - 1] * self.lip_reflection
+
+        self._calculate_junctions(lmbd)
+
+        i = self.nose_start
+        r = self.new_reflection_left * (1 - lmbd) + self.reflection_left * lmbd
+        self.junction_outL[i] = r * self.R[i - 1] + (1 + r) * (self.noseL[0] + self.L[i])
+        r = self.new_reflection_right * (1 - lmbd) + self.reflection_right * lmbd
+        self.junction_outR[i] = r * self.L[i] + (1 + r) * (self.R[i - 1] + self.noseL[0])
+        r = self.new_reflection_nose * (1 - lmbd) + self.reflection_nose * lmbd
+        self.nose_junc_outR[0] = r * self.noseL[0] + (1 + r) * (self.L[i] + self.R[i - 1])
+
+        self._calculate_lip_output()
+
+        self.nose_junc_outL[self.nose_length] = self.noseR[self.nose_length - 1] * self.lip_reflection
+
+        self._calculate_nose_junc_out()
+
+        self._calculate_nose()
+        self.nose_output = self.noseR[self.nose_length - 1]
+
+    def _calculate_nose(self):
+        n = self.nose_length
+
+        # nr = zeros(n)
+        # nl = zeros(n)
+        # for i in range(self.nose_length):
+        #     nr[i] = self.nose_junc_outR[i]
+        #     nl[i] = self.nose_junc_outL[i + 1]
+
+        nr_n = self.nose_junc_outR[:n]
+        nl_n = self.nose_junc_outL[1:n + 1]
+
+        # np.testing.assert_equal(nr, nr_n)
+        # np.testing.assert_equal(nl, nl_n)
+
+        self.noseR[:n] = nr_n
+        self.noseL[:n] = nl_n
+
+    def _calculate_nose_junc_out(self):
+        n = self.nose_length
+
+        # njoR = zeros(n-1)
+        # njoL = zeros(n-1)
+        # for i in range(1, self.nose_length):
+        #     w = self.nose_reflection[i] * (self.noseR[i - 1] + self.noseL[i])
+        #     njoR[i-1] = self.noseR[i - 1] - w
+        #     njoL[i-1] = self.noseL[i] + w
+
+        w_n = self.nose_reflection[1:n] * (self.noseR[:n - 1] + self.noseL[1:n])
+        njoR_n = self.noseR[:n - 1] - w_n
+        njoL_n = self.noseL[1:n] + w_n
+
+        # np.testing.assert_equal(njoR, njoR_n)
+        # np.testing.assert_equal(njoL, njoL_n)
+
+        self.nose_junc_outR[1:n] = njoR_n
+        self.nose_junc_outL[1:n] = njoL_n
+
+    def _calculate_lip_output(self):
+        # r = zeros(self.n)
+        # l = zeros(self.n)
+        # for i in range(self.n):
+        #     r[i] = self.junction_outR[i] * 0.999
+        #     l[i] = self.junction_outL[i + 1] * 0.999
+
+        r_n = self.junction_outR[:self.n] * 0.999
+        l_n = self.junction_outL[1:self.n + 1] * 0.999
+
+        # np.testing.assert_equal(r, r_n)
+        # np.testing.assert_equal(l, l_n)
+
+        self.R[:self.n] = r_n
+        self.L[:self.n] = l_n
+        self.lip_output = self.R[self.n - 1]
+
+    def _calculate_junctions(self, lmbd):
+
+        # j_outR = zeros(self.n - 1)
+        # j_outL = zeros(self.n - 1)
+        # for i in range(1, self.n):
+        #     r = self.reflection[i] * (1 - lmbd) + self.new_reflection[i] * lmbd
+        #     w = r * (self.R[i - 1] + self.L[i])
+        #     j_outR[i - 1] = self.R[i - 1] - w
+        #     j_outL[i - 1] = self.L[i] + w
+
+        r = self.reflection[1:self.n] * (1 - lmbd) + self.new_reflection[1:self.n] * lmbd
+        w = r * (self.R[:self.n - 1] + self.L[1:self.n])
+        j_outR_n = self.R[:self.n - 1] - w
+        j_outL_n = self.L[1:self.n] + w
+
+        # np.testing.assert_equal(j_outR, j_outR_n)
+        # np.testing.assert_equal(j_outL, j_outL_n)
+
+        self.junction_outR[1:self.n] = j_outR_n
+        self.junction_outL[1:self.n] = j_outL_n
