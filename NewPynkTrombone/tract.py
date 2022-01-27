@@ -316,6 +316,35 @@ class Tract:
         self.junction_outR[1:self.n] = j_outR_n
         self.junction_outL[1:self.n] = j_outL_n
 
+    def reshape(self) -> None:
+        current_obstruction: int = -1
+        amount = self.block_time * self.movement_speed
+
+        for i in range(self.n):
+            slow_return = 0
+            diameter = self.diameter[i]
+            target_diameter = self.target_diameter[i]
+
+            if diameter < 0.001: current_obstruction = i
+
+            if i < self.nose_start:
+                slow_return = 0.6
+            elif i >= self.tip_start:
+                slow_return = 1.0
+            else:
+                slow_return = 0.6 + 0.4 * (i - self.nose_start) / (self.tip_start - self.nose_start)
+
+            self.diameter[i] = move_towards(diameter, target_diameter,
+                                                slow_return * amount, 2 * amount)
+
+        if self.last_obstruction > -1 and current_obstruction == -1 and self.noseA[0] < 0.05:
+            self.tpool.append(self.last_obstruction)
+        self.last_obstruction = current_obstruction
+
+        self.nose_diameter[0] = move_towards(self.nose_diameter[0], self.velum_target,
+                                                 amount * 0.25, amount * 0.1)
+        self.noseA[0] = self.nose_diameter[0] * self.nose_diameter[0]
+
     @property
     def lip_start(self):
         return self.__lip_start
