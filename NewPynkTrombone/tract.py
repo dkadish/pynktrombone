@@ -143,3 +143,31 @@ class Tract:
 
         self.tpool: TransientPool = TransientPool()
         self.T: float = 1.0 / samplerate
+
+        self.calculate_diameters()
+        self.calculate_nose_diameter()
+    
+    def calculate_diameters(self):
+        # TODO Pythonify
+        for i in range(self.n):
+            diameter = 0
+            if i < 7 * float(self.n) / BASE_N - 0.5: # BASE_N is 44
+                diameter = 0.6
+            elif i < 12 * float(self.n) / BASE_N: 
+                diameter = 1.1
+            else:
+                diameter = 1.5
+
+            self.diameter[i] = self.rest_diameter[i] = self.target_diameter[i] = self.new_diameter[i] = diameter
+    
+    def calculate_nose_diameter(self):
+        # TODO Pythonify
+        for i in range(self.nose_length):
+            d = 2 * (float(i) / self.nose_length)
+            if d < 1:
+                diameter = 0.4 + 1.6 * d
+            else:
+                diameter = 0.5 + 1.5 * (2 - d)
+
+            diameter = min(diameter, 1.9)
+            self.nose_diameter[i] = diameter
