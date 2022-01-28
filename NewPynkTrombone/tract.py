@@ -1,8 +1,7 @@
 import numpy as np
 import numba 
-from numba import int32, int64, float32, float64
+from numba import int32, float64
 from numba.experimental import jitclass
-from collections import OrderedDict
 
 from .transient import TransientPool
 from .consts import BASE_N
@@ -77,12 +76,42 @@ spec = [
 
 @jitclass(spec)
 class Tract:
-    """ Human tract model
+    """ Human vocal tract model
+    Approximating human vocal tract model by dividing it into n cylinders.
+    Args:
+        n: The number of divisions of the cylinder. The finer the number of divisions, 
+           the more precise the calculation and memory usage.
+        nose_start: The starting idx of nose cylinders among the divided cylinders.
+        nose_length: The number of nose cylinders among the divided cylinders.
+        tip_start: It is probably the starting idx on the tip of the tongue.
+        blade_start: It is probably the starting idx on the root of the tongue.
+        epiglottis_start: The start idx of epiglottis.
+        lip_start: The start idx of lip.
+
+        Based on the structure of the human vocal tract, the following conditions can be predicted.
+        n > lip_start > tip_start > blade_start > epiglottis_start > 0
+        n > nose_start > epiglottis_start > 0
+        n ≒ nose_start + nose_length
+
+    人間の声道をn個の円筒に分けて近似します。
+    args:
+        n: 円筒の分割数です。細かいほど精緻になり、計算量・メモリ使用量が増えます。
+        nose_start: 分割した円筒のうち、鼻の円筒が始まるidxです。
+        nose_length: 分割した円筒のうち、鼻の円筒の数です
+        tip_start: おそらく舌先の開始idxです。
+        blade_start: おそらく舌の付け根の開始idxです。
+        epiglottis_start: 喉頭蓋の開始idxです。
+        lip_start: 唇の開始idxです。
+
+        人間の声道の構造から、次の条件が予測されます。
+        n > lip_start > tip_start > blade_start > epiglottis_start > 0
+        n > nose_start > epiglottis_start > 0
+        n ≒ nose_start + nose_length
 
     """
     def __init__(
         self, samplerate: float, n:int = 44, nose_length:int = 28,
-        nose_start:int = 17, tip_start:int = 32, blade_start=10,
+        nose_start:int = 17, tip_start:int = 32, blade_start:int =12,
         epiglottis_start:int = 6, lip_start:int = 39,
         ) -> None:
         self.sr:float = samplerate
