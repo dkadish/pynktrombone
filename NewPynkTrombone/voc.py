@@ -175,6 +175,7 @@ class Voc:
             self.buf[i] = vocal_output * self.vocal_output_scaler
         
         self.__counter += 1
+        return self.buf
 
     def set_diameters(self,
                       blade_start: int,
