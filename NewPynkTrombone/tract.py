@@ -364,6 +364,9 @@ class Tract:
         self.junction_outL[1:self.n] = j_outL_n
 
     def reshape(self) -> None:
+        """
+        Reshape diameters of the tract.
+        """
         current_obstruction: int = -1
         amount = self.block_time * self.movement_speed
 
