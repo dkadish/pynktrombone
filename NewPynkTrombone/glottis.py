@@ -23,8 +23,15 @@ spec = [
 
 @jitclass(spec)
 class Glottis:
-    """ about Glottis
-    
+    """ Human vocal glottis model
+    Args:
+        default_freq: 
+            The initial frequency.
+            周波数の初期値です。
+
+        default_tenseness: 
+                The initial tenseness.
+                掠れ具合の初期値です。
     """
     def __init__(self, sr: float, default_freq:float=140, default_tenseness:float = 0.6):
         self.freq: float = default_freq  # 140Hz frequency by default
