@@ -115,6 +115,7 @@ class Tract:
         n > lip_start > tip_start > blade_start > epiglottis_start > 0
         n > nose_start > epiglottis_start > 0
         n ≒ nose_start + nose_length
+
     """
     def __init__(
         self, samplerate: float, n:int = 44, nose_length:int = 28,
@@ -243,7 +244,15 @@ class Tract:
             self.nose_reflection[i] = (self.noseA[i - 1] - self.noseA[i]) / (self.noseA[i - 1] + self.noseA[i])
 
     def compute(self, _in: float, lmbd: float) -> None:
+        """
+        Pass the output of the glottis through the vocal tract and
+        compute the resonance results from the mouth and nose.
+        glottisの出力を声道に通し、口と鼻からの共鳴結果を計算します。
 
+        We can get the result from following attributes.
+        computeの結果は次の属性から取得できます。
+            self.lip_output, self.nose_output
+        """
         pool = self.tpool
         transients = pool.get_valid_transients()
         for n in transients:
