@@ -113,7 +113,7 @@ class Tract:
         self, samplerate: float, n:int = 44, nose_length:int = 28,
         nose_start:int = 17, tip_start:int = 32, blade_start:int =12,
         epiglottis_start:int = 6, lip_start:int = 39,
-        ) -> None:
+        **kwds) -> None:
         self.sr:float = samplerate
         self.n = n
         self.__blade_start = blade_start
