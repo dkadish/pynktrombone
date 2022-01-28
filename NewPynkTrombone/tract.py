@@ -78,7 +78,7 @@ spec = [
 @jitclass(spec)
 class Tract:
     """ Human tract model
-    
+
     """
     def __init__(
         self, samplerate: float, n:int = 44, nose_length:int = 28,
@@ -153,9 +153,11 @@ class Tract:
         # TODO Pythonify
         for i in range(self.n):
             diameter = 0
-            if i < 7 * float(self.n) / BASE_N - 0.5: # BASE_N is 44
+            # calculate diameters until epigottis_start
+            if i < (1+self.epiglottis_start) * float(self.n) / BASE_N - 0.5: # BASE_N is 44
                 diameter = 0.6
-            elif i < 12 * float(self.n) / BASE_N: 
+            # calculate diameters from epigottis_start to blade_start
+            elif i < self.blade_start * float(self.n) / BASE_N: 
                 diameter = 1.1
             else:
                 diameter = 1.5
