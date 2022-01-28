@@ -225,3 +225,6 @@ class Voc:
     @counter.setter
     def counter(self, i):
         self.__counter = i
+
+    def play_chunk(self):
+        return self.compute()
