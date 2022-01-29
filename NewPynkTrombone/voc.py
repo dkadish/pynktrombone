@@ -24,6 +24,14 @@ spec = [
 ]
 @jitclass(spec)
 class Voc:
+    __doc__ = """Human vocal organ model
+    Generate voice by controlling Glottis and Tract.
+    GlottisとTractを制御することによって声を生成します。
+    
+    {0}
+
+    {1}
+    """.format(Glottis.__doc__,Tract.__doc__)
 
     def __init__(
         self, samplerate:float = 44100, CHUNK:int = 512, vocal_output_scaler:float = 0.125,
@@ -154,7 +162,8 @@ class Voc:
 
     def compute(self) -> np.ndarray:
         """
-        CHUNKの長さの波形を生成します。
+        Generate a wave for 1 CHUNK. 
+        1CHUNKの分の波形を生成します。
         """
         self.tract.reshape()
         self.tract.calculate_reflections()
