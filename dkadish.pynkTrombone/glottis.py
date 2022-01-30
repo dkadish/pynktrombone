@@ -1,41 +1,14 @@
-from .consts import M_PI
 from math import exp, sin, log, sqrt
-from numba.experimental import jitclass
-from numba import float64
 from random import random
 
-spec = [
-    ("freq",float64),
-    ("tenseness",float64),
-    ("Rd",float64),
-    ("waveform_length",float64),
-    ("time_in_waveform",float64),
-    ("alpha",float64),
-    ("E0",float64),
-    ("epsilon",float64),
-    ("shift",float64),
-    ("delta",float64),
-    ("Te",float64),
-    ("omega",float64),
-    ("T",float64),
-    ("sr",float64)
-]
+from pynkTrombone import voc
 
-@jitclass(spec)
+
 class Glottis:
-    """ Human vocal glottis model
-    Args:
-        default_freq: 
-            The initial frequency.
-            周波数の初期値です。
 
-        default_tenseness: 
-                The initial tenseness.
-                掠れ具合の初期値です。
-    """
-    def __init__(self, sr: float, default_freq:float=140, default_tenseness:float = 0.6):
-        self.freq: float = default_freq  # 140Hz frequency by default
-        self.tenseness: float = default_tenseness  # value between 0 and 1
+    def __init__(self, sr: float):
+        self.freq: float = 140  # 140Hz frequency by default
+        self.tenseness: float = 0.6  # value between 0 and 1
         self.Rd: float
         self.waveform_length: float
         self.time_in_waveform: float = 0
@@ -47,7 +20,6 @@ class Glottis:
         self.Te: float
         self.omega: float
         self.T: float = 1.0 / sr  # big T
-        self.sr:float = sr
 
         self.setup_waveform(0)
 
@@ -107,10 +79,10 @@ class Glottis:
         lower_integral = - (Te - Tp) / 2 + rhs_integral
         upper_integral = -lower_integral
 
-        omega = M_PI / Tp
+        omega = voc.M_PI / Tp
         s = sin(omega * Te)
 
-        y = -M_PI * s * upper_integral / (Tp * 2)
+        y = -voc.M_PI * s * upper_integral / (Tp * 2)
         z = log(y)
         alpha = z / (Tp / 2 - Te)
         E0 = -1 / (s * exp(alpha * Te))

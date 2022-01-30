@@ -1,162 +1,38 @@
 import numpy as np
-import numba 
-from numba import int32, float64
-from numba.experimental import jitclass
 
+from . import voc
 from .transient import TransientPool
-from .consts import BASE_N
 
-@numba.njit()
-def move_towards(current: float, target: float, amt_up: float, amt_down: float) -> float:
-    tmp: float
-    if current < target:
-        tmp = current + amt_up
-        return min(tmp, target)
 
-    else:
-        tmp = current - amt_down
-        return max(tmp, target)
-
-@numba.njit()
-def zeros(n: int) -> np.ndarray:
-    return np.zeros((n,),dtype=np.float64)
-
-spec = [
-    ("sr",float64),
-    ("n",int32),
-    ("__blade_start",int32),
-    ("__lip_start",int32),
-    ("__epiglottis_start",int32),
-
-    ("diameter",float64[:]),
-    ("rest_diameter",float64[:]),
-    ("target_diameter",float64[:]),
-    ("new_diameter",float64[:]),
-    ("R",float64[:]),
-    ("L",float64[:]),
-    ("reflection",float64[:]),
-    ("new_reflection",float64[:]),
-    ("junction_outL",float64[:]),
-    ("junction_outR",float64[:]),
-    ("A",float64[:]),
-
-    ("nose_length", int32),
-    ("nose_start", int32),
-    ("tip_start", int32),
-    ("noseL",float64[:]),
-    ("noseR",float64[:]),
-    ("nose_junc_outL",float64[:]),
-    ("nose_junc_outR",float64[:]),
-    ("nose_reflection",float64[:]),
-    ("nose_diameter",float64[:]),
-    ("noseA",float64[:]),
-
-    ("reflection_left",float64),
-    ("reflection_right",float64),
-    ("reflection_nose",float64),
-
-    ("new_reflection_left",float64),
-    ("new_reflection_right",float64),
-    ("new_reflection_nose",float64),
-
-    ("velum_target",float64),
-
-    ("glottal_reflection",float64),
-    ("lip_reflection",float64),
-    ("last_obstruction",int32),
-    ("fade",float64),
-    ("movement_speed",float64),
-    ("lip_output",float64),
-    ("nose_output",float64),
-    ("block_time",float64),
-
-    ("tpool",TransientPool.class_type.instance_type),
-    ("T",float64)
-]
-
-@jitclass(spec)
 class Tract:
-    """ Human vocal tract model
-    Approximating human vocal tract model by dividing it into n cylinders.
-    人間の声道をn個の円筒に分けて近似します。
+    def __init__(self, samplerate: float):
+        self.n: int = 44 # n
 
-    Args:
-        n: 
-            The number of divisions of the cylinder. The finer the number of divisions, 
-            the more precise the calculation and memory usage.
-            円筒の分割数です。細かいほど精緻になり、計算量・メモリ使用量が増えます。
+        self.diameter: np.ndarray = voc.zeros(self.n)  # len = 44
+        self.rest_diameter: np.ndarray = voc.zeros(self.n)  # len = 44
+        self.target_diameter: np.ndarray = voc.zeros(self.n)  # len = 44
+        self.new_diameter: np.ndarray = voc.zeros(self.n)  # len = 44
+        self.R: np.ndarray = voc.zeros(self.n)  # len = 44
+        self.L: np.ndarray = voc.zeros(self.n)  # len = 44
+        self.reflection: np.ndarray = voc.zeros(self.n + 1)  # len = 44
+        self.new_reflection: np.ndarray = voc.zeros(self.n + 1)  # len = 44
+        self.junction_outL: np.ndarray = voc.zeros(self.n + 1)  # len = 44
+        self.junction_outR: np.ndarray = voc.zeros(self.n + 1)  # len = 44
+        self.A: np.ndarray = voc.zeros(self.n)  # len = 44
 
-        nose_start:
-            The starting idx of nose cylinders among the divided cylinders.
-            分割した円筒のうち、鼻の円筒が始まるidxです。
+        self.nose_length: int = 28
 
-        nose_length:
-            The number of nose cylinders among the divided cylinders.
-            分割した円筒のうち、鼻の円筒の数です
+        self.nose_start: int = 17
 
-        tip_start:
-            It is probably the starting idx on the tip of the tongue.
-            おそらく舌先の開始idxです。
-
-        blade_start:
-            It is probably the starting idx on the root of the tongue.
-            おそらく舌の付け根の開始idxです。
-
-        epiglottis_start:
-            The start idx of epiglottis.
-            喉頭蓋の開始idxです。
-
-        lip_start:
-            The start idx of lip.
-            唇の開始idxです。
-
-        Based on the structure of the human vocal tract, the following conditions can be predicted.
-        人間の声道の構造から、次の条件が予測されます。
-        n > lip_start > tip_start > blade_start > epiglottis_start > 0
-        n > nose_start > epiglottis_start > 0
-        n ≒ nose_start + nose_length
-
-    """
-    def __init__(
-        self, samplerate: float, n:int = 44, nose_length:int = 28,
-        nose_start:int = 17, tip_start:int = 32, blade_start:int =12,
-        epiglottis_start:int = 6, lip_start:int = 39,
-        ) -> None:
-        self.sr:float = samplerate
-        self.n = n
-        self.__blade_start = blade_start
-        self.__lip_start = lip_start
-        self.__epiglottis_start = epiglottis_start
-
-        n_z = zeros(n)
-        np1_z = zeros(n+1)
-
-        self.diameter: np.ndarray = n_z.copy()  
-        self.rest_diameter: np.ndarray = n_z.copy()  
-        self.target_diameter: np.ndarray = n_z.copy()  
-        self.new_diameter: np.ndarray = n_z.copy()  
-        self.R: np.ndarray = n_z.copy()  
-        self.L: np.ndarray = n_z.copy()  
-        self.reflection: np.ndarray = np1_z.copy()  
-        self.new_reflection: np.ndarray = np1_z.copy()  
-        self.junction_outL: np.ndarray = np1_z.copy()  
-        self.junction_outR: np.ndarray = np1_z.copy()  
-        self.A: np.ndarray = n_z.copy()  
-
-        self.nose_length = nose_length
-        self.nose_start = nose_start
-        self.tip_start = tip_start
-
-        noze_z = zeros(nose_length)
-        nozep1_z = zeros(nose_length+1)
-        self.noseL: np.ndarray = noze_z.copy()  
-        self.noseR: np.ndarray = noze_z.copy()  
-        self.nose_junc_outL: np.ndarray = nozep1_z.copy()  
-        self.nose_junc_outR: np.ndarray = nozep1_z.copy()  
+        self.tip_start: int = 32
+        self.noseL: np.ndarray = voc.zeros(self.nose_length)  # len = 28
+        self.noseR: np.ndarray = voc.zeros(self.nose_length)  # len = 28
+        self.nose_junc_outL: np.ndarray = voc.zeros(self.nose_length + 1)  # len = 29
+        self.nose_junc_outR: np.ndarray = voc.zeros(self.nose_length + 1)  # len = 29
         # FIXME: I don't think self.nose_reflection[0] ever gets touched.
-        self.nose_reflection: np.ndarray = nozep1_z.copy()  
-        self.nose_diameter: np.ndarray = noze_z.copy()  
-        self.noseA: np.ndarray = noze_z.copy()  
+        self.nose_reflection: np.ndarray = voc.zeros(self.nose_length + 1)  # len = 29
+        self.nose_diameter: np.ndarray = voc.zeros(self.nose_length)  # len = 28
+        self.noseA: np.ndarray = voc.zeros(self.nose_length)  # len = 28
 
         self.reflection_left: float = 0.0
         self.reflection_right: float = 0.0
@@ -180,28 +56,18 @@ class Tract:
         self.tpool: TransientPool = TransientPool()
         self.T: float = 1.0 / samplerate
 
-        self.calculate_diameters()
-        self.calculate_nose_diameter()
-        self.calculate_reflections()
-        self.calculate_nose_reflections()
-        self.nose_diameter[0] = self.velum_target
-
-    def calculate_diameters(self):
         # TODO Pythonify
         for i in range(self.n):
             diameter = 0
-            # calculate diameters until epigottis_start
-            if i < (1+self.epiglottis_start) * float(self.n) / BASE_N - 0.5: # BASE_N is 44
+            if i < 7 * float(self.n) / 44 - 0.5: # 44 is BASE_N
                 diameter = 0.6
-            # calculate diameters from epigottis_start to blade_start
-            elif i < self.blade_start * float(self.n) / BASE_N: 
+            elif i < 12 * float(self.n) / 44: # 44 is BASE_N
                 diameter = 1.1
             else:
                 diameter = 1.5
 
             self.diameter[i] = self.rest_diameter[i] = self.target_diameter[i] = self.new_diameter[i] = diameter
-    
-    def calculate_nose_diameter(self):
+
         # TODO Pythonify
         for i in range(self.nose_length):
             d = 2 * (float(i) / self.nose_length)
@@ -213,12 +79,26 @@ class Tract:
             diameter = min(diameter, 1.9)
             self.nose_diameter[i] = diameter
 
+        # TODO Pythonify. This *SHOULD* work right now, but it's dumb
+        self.calculate_reflections()
+        self.calculate_nose_reflections()
+        self.nose_diameter[0] = self.velum_target
+
+    # static void tract_init(sp_data *sp, Tract *self)
+    # CHANGE: sp is not a pointer, is returned from fn. | sp is not changed. no longer returned.
+    # CHANGE: self is not a pointer, is returned from fn
+    # def tract_init(self: Tract, samplerate: float) -> Tract:
+
+    # static void tract_calculate_reflections(Tract *self)
+    # CHANGE: self is not a pointer, is returned from fn
     def calculate_reflections(self):
         # TODO refactor rename i
         i: int
         _sum: float
 
-        self.A[:] = self.diameter **2 # /* Calculate area from diameter squared*/
+        for i in range(self.n):
+            self.A[i] = self.diameter[i] * self.diameter[i]
+            # /* Calculate area from diameter squared*/
 
         for i in range(1, self.n):
             self.reflection[i] = self.new_reflection[i]
@@ -236,32 +116,34 @@ class Tract:
         self.new_reflection_right = float(2 * self.A[self.nose_start + 1] - _sum) / _sum
         self.new_reflection_nose = float(2 * self.noseA[0] - _sum) / _sum
 
+    # static void tract_calculate_nose_reflections(Tract *self)
+    # CHANGE: self is not a pointer, is returned from fn
     def calculate_nose_reflections(self):
+        # TODO refactor rename i
+        i: int
+
         for i in range(self.nose_length):
             self.noseA[i] = self.nose_diameter[i] * self.nose_diameter[i]
 
         for i in range(1, self.nose_length):
             self.nose_reflection[i] = (self.noseA[i - 1] - self.noseA[i]) / (self.noseA[i - 1] + self.noseA[i])
 
+    # static void tract_compute(sp_data *sp, Tract *self,
+    #     SPFLOAT  in,
+    #     SPFLOAT  lmbd)
     def compute(self, _in: float, lmbd: float) -> None:
-        """
-        Pass the output of the glottis through the vocal tract and
-        compute the resonance results from the mouth and nose.
-        glottisの出力を声道に通し、口と鼻からの共鳴結果を計算します。
 
-        We can get the result from following attributes.
-        computeの結果は次の属性から取得できます。
-            self.lip_output, self.nose_output
-        """
-        pool = self.tpool
-        transients = pool.get_valid_transients()
-        for n in transients:
+        pool = self.tpool  # Python treats this as a reference, so this should be fine.
+        current_size = pool.size
+        n = pool.root
+        for i in range(current_size):
             amp = n.strength * pow(2, -1.0 * n.exponent * n.time_alive)
             self.L[n.position] += amp * 0.5
             self.R[n.position] += amp * 0.5
             n.time_alive += self.T * 0.5
             if n.time_alive > n.lifetime:
                 pool.remove(n.id)
+            n = n.next
 
         # TODO: junction_outR[0] doesn't get used until _calculate_lip_output. And it is the only place that _in is used.
         #       Perhaps, it could be moved to later and then the first part of the calculation could be parallelized...
@@ -363,10 +245,9 @@ class Tract:
         self.junction_outR[1:self.n] = j_outR_n
         self.junction_outL[1:self.n] = j_outL_n
 
+    # static void tract_reshape(Tract *self)
+    # CHANGE: self is not a pointer, is returned from fn
     def reshape(self) -> None:
-        """
-        Reshape diameters of the tract.
-        """
         current_obstruction: int = -1
         amount = self.block_time * self.movement_speed
 
@@ -384,20 +265,20 @@ class Tract:
             else:
                 slow_return = 0.6 + 0.4 * (i - self.nose_start) / (self.tip_start - self.nose_start)
 
-            self.diameter[i] = move_towards(diameter, target_diameter,
+            self.diameter[i] = voc.move_towards(diameter, target_diameter,
                                                 slow_return * amount, 2 * amount)
 
         if self.last_obstruction > -1 and current_obstruction == -1 and self.noseA[0] < 0.05:
             self.tpool.append(self.last_obstruction)
         self.last_obstruction = current_obstruction
 
-        self.nose_diameter[0] = move_towards(self.nose_diameter[0], self.velum_target,
+        self.nose_diameter[0] = voc.move_towards(self.nose_diameter[0], self.velum_target,
                                                  amount * 0.25, amount * 0.1)
         self.noseA[0] = self.nose_diameter[0] * self.nose_diameter[0]
 
     @property
     def lip_start(self):
-        return self.__lip_start
+        return 39
 
     @property
     def blade_start(self):
@@ -405,7 +286,7 @@ class Tract:
 
         :return:
         '''
-        return self.__blade_start
+        return 12  # 10
 
     @property
     def epiglottis_start(self):
@@ -413,11 +294,11 @@ class Tract:
 
         :return:
         '''
-        return self.__epiglottis_start
+        return 6
 
     @property
     def lips(self):
-        return np.mean(self.target_diameter[self.lip_start:])
+        return np.average(self.target_diameter[self.lip_start:])
 
     @lips.setter
     def lips(self, d):
@@ -425,7 +306,7 @@ class Tract:
 
     @property
     def epiglottis(self):
-        return np.mean(self.target_diameter[self.epiglottis_start:self.blade_start])
+        return np.average(self.target_diameter[self.epiglottis_start:self.blade_start])
 
     @epiglottis.setter
     def epiglottis(self, d):
@@ -433,7 +314,7 @@ class Tract:
 
     @property
     def trachea(self):
-        return np.mean(self.target_diameter[:self.epiglottis_start])
+        return np.average(self.target_diameter[:self.epiglottis_start])
 
     @trachea.setter
     def trachea(self, d):
