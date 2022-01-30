@@ -183,8 +183,15 @@ class Voc:
             vocal_output += self.tract.lip_output + self.tract.nose_output
             self.buf[i] = vocal_output * self.vocal_output_scaler
         
-        self.__counter += 1
         return self.buf
+
+    def step(self) -> float:
+
+        if self.counter == 0:
+            self.compute()
+        out = self.buf[self.counter]
+        self.counter = (self.counter + 1) % self.CHUNK
+        return out
 
     def set_diameters(self,
                       blade_start: int,
