@@ -160,7 +160,7 @@ class Voc:
     #     return &self->self.velum_target
     # }
 
-    def compute(self) -> np.ndarray:
+    def step(self) -> np.ndarray:
         """
         Generate a wave for 1 CHUNK. 
         1CHUNKの分の波形を生成します。
@@ -185,10 +185,10 @@ class Voc:
         
         return self.buf
 
-    def step(self) -> float:
+    def compute(self) -> float:
 
         if self.counter == 0:
-            self.compute()
+            self.step()
         out = self.buf[self.counter]
         self.counter = (self.counter + 1) % self.CHUNK
         return out
@@ -244,7 +244,7 @@ class Voc:
         self.__counter = i
 
     def play_chunk(self):
-        return self.compute()
+        return self.step()
 
 class Mode(Enum):
     VOC_NONE = 0

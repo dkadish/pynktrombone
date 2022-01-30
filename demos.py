@@ -20,7 +20,7 @@ def callme(output: List[float], numFrames: int, data: voc_demo_d) -> Tuple[List[
             if vd.mode == Mode.VOC_TONGUE:
                 vd.voc.tongue_shape(vd.tongue_pos, vd.tongue_diam)
 
-        tmp = vd.voc.step()
+        tmp = vd.voc.compute()
         tmp *= vd.gain
         output[i, 0] = tmp
         output[i, 1] = tmp
