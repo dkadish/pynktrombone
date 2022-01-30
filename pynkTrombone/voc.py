@@ -183,8 +183,15 @@ class Voc:
             vocal_output += self.tract.lip_output + self.tract.nose_output
             self.buf[i] = vocal_output * self.vocal_output_scaler
         
-        self.__counter += 1
         return self.buf
+
+    def step(self) -> float:
+
+        if self.counter == 0:
+            self.compute()
+        out = self.buf[self.counter]
+        self.counter = (self.counter + 1) % self.CHUNK
+        return out
 
     def set_diameters(self,
                       blade_start: int,
@@ -238,3 +245,23 @@ class Voc:
 
     def play_chunk(self):
         return self.compute()
+
+class Mode(Enum):
+    VOC_NONE = 0
+    VOC_TONGUE = 1
+
+class voc_demo_d():
+    def __init__(self):
+        self.sr: float = 44100
+        self.chunk = 512
+        self.voc: Voc = Voc(self.sr,self.chunk)  # Former pointer
+        self.tract: float = self.voc.tract_diameters  # Former pointer
+        self.freq: float = self.voc.frequency  # Former pointer
+        self.velum: float = self.voc.velum  # Former pointer
+        self.tenseness: float = self.voc.tenseness  # Former pointer
+        self.tract_size: int = self.voc.tract_size
+        self.gain: float = 1
+        self.mode: int = Mode.VOC_NONE
+        self.tongue_pos: float
+        self.tongue_diam: float
+
