@@ -1,89 +1,90 @@
-from itertools import count
-from typing import List
+from .consts import MAX_TRANSIENTS
+import numba
+from numba.experimental import jitclass
+from numba import int32, float64, boolean, int64
+from collections import OrderedDict
 
-from pynkTrombone import voc
-
-
+spec = OrderedDict()
+spec["position"] = int32
+spec["time_alive"] = float64
+spec["lifetime"] = float64
+spec["strength"] = float64
+spec["exponent"] = float64
+spec["is_free"] = boolean
+spec["id"] = int32
+@jitclass(spec)
 class Transient:
-    ids = count(0)
-
-    def __init__(self):
+    """ Transient class
+    Saving the transient state temporary.
+    ある瞬間の状態を一時的に保持します。
+    """
+    def __init__(self,id:int) -> None:
         self.position: int = 0
         self.time_alive: float = 0
         self.lifetime: float
         self.strength: float = 0
         self.exponent: float = 0
-        self.is_free: str = 1
-        self.id: int = next(self.ids)
-        self.next: Transient  # PTR
+        self.is_free: bool = True
+        self.id: int = id
 
-    @classmethod
-    def reset_count(self):
-        self.ids = count(0)
+spec = OrderedDict()
+inst_trans = Transient.class_type.instance_type
+spec["pool"] = numba.types.List(inst_trans)
+spec["free_ids"] = numba.types.List(int64)
 
-
+@jitclass(spec)
 class TransientPool:
+    """ Transient Pool
+    Transientを複数保持しておくためのプールオブジェクトです。
+    Tract.computeの時に有効なTransientのリストを返します。
+    
+    """
+
     def __init__(self):
-        Transient.reset_count()
+        """
+        Prepair invalid transients.
+        """
+        self.pool: list[Transient] = [Transient(i) for i in range(MAX_TRANSIENTS)]
+        fi = [*range(MAX_TRANSIENTS)]
+        fi.reverse()
+        self.free_ids = fi
 
-        self.pool: List[Transient] = []  # Should be limited to MAX_TRANSIENTS
-        self.root: Transient = None  # PTR
-        self.size: int = 0
-        self.next_free: int = 0
-
-        for i in range(voc.MAX_TRANSIENTS):
-            self.pool.append(Transient())
-
-    # static int append_transient(TransientPool *self, int position)
-    # CHANGE: self is not a pointer, is returned from fn
     def append(self, position: int) -> None:
-        i: int
-        free_id: int
-        # Transient *t
+        """
+        appending a transient of value of the position.
+        If there is no free Transient, do nothing.
+
+        positionの値のTransientを追加します。
+        freeなTransientが存在しない場合は何もしません
+        """
+        free_id : int
         t: Transient
 
-        free_id = self.next_free
-        if self.size == voc.MAX_TRANSIENTS:
+        if len(self.free_ids) == 0:
             return
-
-        if free_id == -1:
-            for i in range(voc.MAX_TRANSIENTS):
-                if self.pool[i].is_free:
-                    free_id = i
-                    break
-
-        if free_id == -1:
-            return
+        free_id = self.free_ids.pop()
 
         t = self.pool[free_id]
-        t.next = self.root
-        self.root = t
-        self.size += 1
-        t.is_free = 0
+        t.is_free = False
         t.time_alive = 0
         t.lifetime = 0.2
         t.strength = 0.3
         t.exponent = 200
         t.position = position
-        self.next_free = -1
 
-    # static void remove_transient(TransientPool *self, unsigned int id)
-    # CHANGE: self is not a pointer, is returned from fn
     def remove(self, id: int) -> None:
-        i: int
-        n: Transient
+        """
+        Disable a valid transient and add its id to free_ids.
+        有効なtransientを無効にし、free_idsにそのidを追加します。
+        """
+        t = self.pool[id]
+        if not t.is_free:
+            t.is_free = True
+            self.free_ids.append(id)
 
-        self.next_free = id
-        n = self.root
-        if id == n.id:
-            self.root = n.next
-            self.size -= 1
-            return
+    @property
+    def size(self) -> int:
+        return MAX_TRANSIENTS - len(self.free_ids)
 
-        for i in range(self.size):
-            if n.next.id == id:
-                self.size -= 1
-                n.next.is_free = 1
-                n.next = n.next.next
-                break
-            n = n.next
+    def get_valid_transients(self) -> list[Transient]:
+        return [t for t in self.pool if not t.is_free]

@@ -1,58 +1,29 @@
 import random as rnd
 from enum import Enum
 from math import cos
-from typing import *
+from typing import List
+
 import numpy as np
-import numba
-from numba.experimental import jitclass
-from numba import int32, float64, int64
 
-from .glottis import Glottis
-from .tract import Tract,zeros
-from .consts import M_PI
+from pynkTrombone.glottis import Glottis
+from pynkTrombone.tract import Tract
 
-rnd.seed(a=42)
+rnd.seed(a=42) # SEED
 
-spec = [
-    ("glottis",Glottis.class_type.instance_type),
-    ("tract", Tract.class_type.instance_type),
-    ("buf",float64[:]),
-    ("sr",float64),
-    ("CHUNK",int32),
-    ("vocal_output_scaler",float64),
-    ("__counter",int64),
-]
-@jitclass(spec)
+M_PI = 3.14159265358979323846 # PI
+
+EPSILON = 1.0e-38 # EPISILON
+
+MAX_TRANSIENTS = 4 # MAX_TRANSIENTS
+
+
 class Voc:
-    __doc__ = """Human vocal organ model
-    Generate voice by controlling Glottis and Tract.
-    GlottisとTractを制御することによって声を生成します。
-    
-    {0}
-
-    {1}
-    """.format(Glottis.__doc__,Tract.__doc__)
-
-    def __init__(
-        self, samplerate:float = 44100, CHUNK:int = 512, vocal_output_scaler:float = 0.125,
-
-        default_freq:float=400, default_tenseness:float = 0.6,
-
-        n:int = 44, nose_length:int = 28,
-        nose_start:int = 17, tip_start:int = 32, blade_start:int =12,
-        epiglottis_start:int = 6, lip_start:int = 39,
-    ) -> None:
-        self.glottis: Glottis = Glottis(samplerate,default_freq,default_tenseness)
-        self.tract: Tract = Tract(
-            samplerate,n, nose_length,
-            nose_start,tip_start, blade_start,
-            epiglottis_start, lip_start,
-        )
-        self.buf: np.ndarray = zeros(CHUNK)
-        self.CHUNK:int = CHUNK
-        self.sr:float = samplerate
-        self.vocal_output_scaler:float = vocal_output_scaler
-        self.__counter = 0
+    # int sp_voc_init(sp_data *sp, Voc *self)
+    def __init__(self, sr: float = 44100):
+        self.glottis: Glottis = Glottis(sr)
+        self.tract: Tract = Tract(sr)
+        self.buf: np.ndarray = zeros(512)  # len = 512 # CHUNK
+        self._counter: int = 0
 
     @property
     def frequency(self) -> float:
@@ -118,6 +89,14 @@ class Voc:
     #     return self->self.nose_length
     # }
 
+    @property
+    def counter(self) -> int:
+        return self._counter
+
+    @counter.setter
+    def counter(self, i):
+        self._counter = i
+
     # int sp_voc_get_counter(Voc *self)
     # {
     #     return self->counter
@@ -160,45 +139,46 @@ class Voc:
     #     return &self->self.velum_target
     # }
 
-    def step(self) -> np.ndarray:
-        """
-        Generate a wave for 1 CHUNK. 
-        1CHUNKの分の波形を生成します。
-        """
-        self.tract.reshape()
-        self.tract.calculate_reflections()
-        for i in range(self.CHUNK):
-            vocal_output = 0
-            lmbd1 = float(i) / float(self.CHUNK) 
-            lmbd2 = float(i + 0.5) / float(self.CHUNK) 
-            glot = self.glottis.compute(lmbd1)
-            # sp, self.self, self = glottis_compute(sp, self.self, lmbd1)
-
-            self.tract.compute(glot, lmbd1)
-            # sp, self.self = tract_compute(sp, self.self, glot, lmbd1)
-            vocal_output += self.tract.lip_output + self.tract.nose_output
-
-            self.tract.compute(glot, lmbd2)
-            # sp, self.self = tract_compute(sp, self.self, glot, lmbd2)
-            vocal_output += self.tract.lip_output + self.tract.nose_output
-            self.buf[i] = vocal_output * self.vocal_output_scaler
-        
-        return self.buf
-
+    # int sp_voc_compute(sp_data *sp, Voc *self, SPFLOAT *out)
     def compute(self) -> float:
 
         if self.counter == 0:
-            self.step()
+            self.tract.reshape()
+            self.tract.calculate_reflections()
+            for i in range(512): # CHUNK
+                vocal_output = 0
+                lmbd1 = float(i) / 512.0 # CHUNK
+                lmbd2 = float(i + 0.5) / 512.0 # CHUNK
+                glot = self.glottis.compute(lmbd1)
+                # sp, self.self, self = glottis_compute(sp, self.self, lmbd1)
+
+                self.tract.compute(glot, lmbd1)
+                # sp, self.self = tract_compute(sp, self.self, glot, lmbd1)
+                vocal_output += self.tract.lip_output + self.tract.nose_output
+
+                self.tract.compute(glot, lmbd2)
+                # sp, self.self = tract_compute(sp, self.self, glot, lmbd2)
+                vocal_output += self.tract.lip_output + self.tract.nose_output
+                self.buf[i] = vocal_output * 0.125 # vocal_output scaler
+
         out = self.buf[self.counter]
-        self.counter = (self.counter + 1) % self.CHUNK
+        self.counter = (self.counter + 1) % 512 # CHUNK
         return out
 
+    # void sp_voc_set_diameters(Voc *self,
+    #     int blade_start,
+    #     int lip_start,
+    #     int tip_start,
+    #     SPFLOAT tongue_index,
+    #     SPFLOAT tongue_diameter,
+    #     SPFLOAT *diameters)
     def set_diameters(self,
                       blade_start: int,
                       lip_start: int,
                       tip_start: int,
                       tongue_index: float,
                       tongue_diameter: float) -> None:
+        # FIXME: NB Odd, self is not used here That appears to be the case in the original code...
 
         i: int
         t: float
@@ -215,6 +195,9 @@ class Voc:
             if i == blade_start or i == lip_start - 2: curve *= 0.94
             self.tract_diameters[i] = 1.5 - curve
 
+    # void sp_voc_set_tongue_shape(Voc *self,
+    #     SPFLOAT tongue_index,
+    #     SPFLOAT tongue_diameter)
     def tongue_shape(self,
                      tongue_index: float,
                      tongue_diameter: float) -> None:
@@ -222,10 +205,21 @@ class Voc:
         # diameters = self.tract_diameters
         # self, diameters = sp_voc_set_diameters(self, 10, 39, 32,
         #                                       tongue_index, tongue_diameter, diameters)
-        self.set_diameters(
-            self.tract.blade_start, self.tract.lip_start, self.tract.tip_start,
-            tongue_index, tongue_diameter
-        )
+        self.set_diameters(10, 39, 32, tongue_index, tongue_diameter) # BLADE_START, LIP_START, TIP_START
+
+    def glottis_enable(self):
+        self.glottis.enable = True
+
+    def glottis_disable(self):
+        self.glottis.enable = False
+
+    def set_glottis_parameters(self, enable=True, frequency=140):
+        # if enable:
+        #     self.glottis_enable()
+        # else:
+        #     self.glottis_disable()
+
+        self.glottis.freq = frequency
 
     def set_tract_parameters(self, trachea=0.6, epiglottis=1.1, velum=0.01, tongue_index=20, tongue_diameter=2.0, lips=1.5):
         self.tract.trachea = trachea
@@ -234,27 +228,46 @@ class Voc:
         self.tongue_shape(tongue_index, tongue_diameter)
         self.tract.lips = lips
 
+    def play_chunk(self) -> np.ndarray:
+        """Play until the next control time.
 
-    @property
-    def counter(self) -> int:
-        return self.__counter
+        :return:
+        """
+        out = [self.compute()]
+        while self.counter != 0:
+            out.append(self.compute())
 
-    @counter.setter
-    def counter(self, i):
-        self.__counter = i
+        return np.array(out)
 
-    def play_chunk(self):
-        return self.step()
+# static SPFLOAT move_towards(SPFLOAT current, SPFLOAT target,
+#         SPFLOAT amt_up, SPFLOAT amt_down)
+def move_towards(current: float, target: float, amt_up: float, amt_down: float) -> float:
+    tmp: float
+    if current < target:
+        tmp = current + amt_up
+        return min(tmp, target)
+
+    else:
+        tmp = current - amt_down
+        return max(tmp, target)
+
+    return 0.0
+
+
+def zeros(n):
+    # return [0.0 for _ in range(n)]
+    return np.zeros(shape=(n,))
+
 
 class Mode(Enum):
     VOC_NONE = 0
     VOC_TONGUE = 1
 
+
 class voc_demo_d():
     def __init__(self):
         self.sr: float = 44100
-        self.chunk = 512
-        self.voc: Voc = Voc(self.sr,self.chunk)  # Former pointer
+        self.voc: Voc = Voc(self.sr)  # Former pointer
         self.tract: float = self.voc.tract_diameters  # Former pointer
         self.freq: float = self.voc.frequency  # Former pointer
         self.velum: float = self.voc.velum  # Former pointer
@@ -264,4 +277,3 @@ class voc_demo_d():
         self.mode: int = Mode.VOC_NONE
         self.tongue_pos: float
         self.tongue_diam: float
-
